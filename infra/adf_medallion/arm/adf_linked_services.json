@@ -1,0 +1,45 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {},
+  "resources": [
+    {
+      "type": "Microsoft.DataFactory/factories/linkedservices",
+      "name": "LS_ADLSGen2_medallion",
+      "apiVersion": "2018-06-01",
+      "properties": {
+        "type": "AzureDataLakeStorageGen2",
+        "typeProperties": {
+          "accountName": "<<storage-account-name>>",
+          "servicePrincipalId": "<<service-principal-id-or-keyvault-ref>>",
+          "tenant": "<<tenant-id>>"
+        }
+      },
+      "__comment__": "Replace placeholders with your storage account name and secure credential references. Use Key Vault references in ADF like @Microsoft.KeyVault(VaultName=..., SecretName=...) for secrets."
+    },
+    {
+      "type": "Microsoft.DataFactory/factories/linkedservices",
+      "name": "LS_EventHub_medallion",
+      "apiVersion": "2018-06-01",
+      "properties": {
+        "type": "AzureEventHub",
+        "typeProperties": {
+          "connectionString": "<<event-hubs-connection-string-or-keyvault-ref>>"
+        }
+      },
+      "__comment__": "Connection string should be stored in Key Vault and referenced. Example: '@Microsoft.KeyVault(VaultName=MYKV, SecretName=eh-conn)'."
+    },
+    {
+      "type": "Microsoft.DataFactory/factories/linkedservices",
+      "name": "LS_KeyVault_medallion",
+      "apiVersion": "2018-06-01",
+      "properties": {
+        "type": "AzureKeyVault",
+        "typeProperties": {
+          "baseUrl": "https://<<your-vault-name>>.vault.azure.net/"
+        }
+      },
+      "__comment__": "ADF can reference secrets from this Key Vault. Ensure the Data Factory has access policies to GET secrets."
+    }
+  ]
+}

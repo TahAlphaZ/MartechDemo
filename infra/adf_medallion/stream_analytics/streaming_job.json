@@ -1,0 +1,36 @@
+{
+  "jobName": "asa_medallion_stream_medallion",
+  "inputs": [
+    {
+      "name": "eh_input",
+      "type": "EventHub",
+      "properties": {
+        "eventHubName": "<<event-hub-name>>",
+        "consumerGroup": "<<consumer-group>>",
+        "__comment__": "Use Key Vault or managed identity for secure credentials"
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "name": "powerbi_output",
+      "type": "PowerBI",
+      "properties": {
+        "groupName": "<<powerbi-group-name>>",
+        "datasetName": "<<dataset-name>>",
+        "tableName": "<<table-name>>",
+        "__comment__": "Power BI output requires registering an app and granting ASA permissions (or use ASA managed identity)."
+      }
+    },
+    {
+      "name": "adlsg2_output",
+      "type": "DataLake",
+      "properties": {
+        "pathPattern": "gold/streaming/{source}/@{date:yyyy}/@{hour:HH}/",
+        "__comment__": "Writes micro-batches to Gold for historical analysis. Use parquet format."
+      }
+    }
+  ],
+  "query": "SELECT System.Timestamp() AS EventEnqueuedUtcTime, * INTO [powerbi_output] FROM [eh_input];",
+  "__comment__": "Example ASA job: forwards events to Power BI for realtime tiles and writes to ADLS for historical analysis. Register Power BI credentials and/or grant managed identity access."
+}

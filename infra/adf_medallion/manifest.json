@@ -1,0 +1,17 @@
+{
+  "generatedBy": "blueprint.MedallionADFGenerator",
+  "generatedAt": "2024-01-01T00:00:00Z",
+  "files": [
+    "adls_structure/bronze/README.txt",
+    "adls_structure/bronze/_SUCCESS.example",
+    "adls_structure/silver/README.txt",
+    "adls_structure/gold/README.txt",
+    "adls_structure/streaming/README.txt",
+    "arm/adf_linked_services.json",
+    "arm/pipelines/bronze_ingest_pipeline.json",
+    "arm/pipelines/silver_transform_pipeline.json",
+    "arm/pipelines/gold_aggregate_pipeline.json",
+    "stream_analytics/streaming_job.json",
+    "powerbi/POWERBI_REALTIME.md"
+  ]
+}

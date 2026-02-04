@@ -1,0 +1,22 @@
+{
+  "name": "pipeline_silver_transform",
+  "properties": {
+    "parameters": {
+      "sourceName": {"type": "String"},
+      "partitionDate": {"type": "String"}
+    },
+    "activities": [
+      {
+        "name": "DataFlowActivity",
+        "type": "MappingDataFlow",
+        "typeProperties": {
+          "description": "Read from Bronze, apply casts, timestamp parsing, dedup by PK, write to Silver",
+          "inputs": ["bronze/@{pipeline().parameters.sourceName}/@{pipeline().parameters.partitionDate}"],
+          "outputs": ["silver/@{pipeline().parameters.sourceName}/@{pipeline().parameters.partitionDate}"],
+          "__comment__": "Transforms: parse timestamps to UTC, standardize column names, deduplicate on primary key column(s), null handling"
+        }
+      }
+    ]
+  },
+  "__comment__": "Deduplicate by primary key and apply basic cleaning/transforms in the data flow"
+}

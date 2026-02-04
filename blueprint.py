@@ -1,9 +1,400 @@
 import time
 import pandas as pd
 import numpy as np
+import os
+import json
+import textwrap
+import datetime
 from datetime import datetime, timedelta
 from notebookutils import mssparkutils
 import sempy_labs as labs
+
+# -----------------------------------
+# Medallion ADF / Streaming Template Generator
+# -----------------------------------
+class MedallionADFGenerator:
+    def __init__(self, out_dir="infra/adf_medallion", prefix="medallion"):
+        self.out_dir = out_dir
+        self.prefix = prefix
+        # ensure out_dir exists
+        os.makedirs(self.out_dir, exist_ok=True)
+
+    def generate_adls_structure(self):
+        base = os.path.join(self.out_dir, "adls_structure")
+        dirs = ["bronze", "silver", "gold", "streaming"]
+        created = []
+        for d in dirs:
+            p = os.path.join(base, d)
+            os.makedirs(p, exist_ok=True)
+            created.append(os.path.relpath(p, self.out_dir))
+            # create README for bronze/silver/gold; streaming gets a README too
+            readme_path = os.path.join(p, "README.txt")
+            with open(readme_path, "w", encoding="utf-8") as f:
+                if d == "bronze":
+                    f.write(textwrap.dedent(
+                        """
+                        Bronze layer - raw ingestion zone
+
+                        Partitioning convention (batch):
+                        bronze/{source}/YYYY/MM/DD/
+
+                        Partitioning convention (streaming micro-batches):
+                        bronze/streaming/{source}/YYYY/MM/DD/HH/
+
+                        Recommended file formats: parquet (preferred), or newline-delimited JSON / compressed CSV
+
+                        Example file ingestion:
+                        - adobe_analytics.csv -> bronze/adobe_analytics/2024/01/10/adobe_analytics_20240110.parquet
+
+                        Partition keys: source, year, month, day
+                        """))
+                elif d == "silver":
+                    f.write(textwrap.dedent(
+                        """
+                        Silver layer - cleaned and conformed data
+
+                        Reads from bronze/{source}/YYYY/MM/DD/ and writes to:
+                        silver/{source}/YYYY/MM/DD/
+
+                        Transform guidance:
+                        - Parse timestamps to UTC
+                        - Standardize column names
+                        - Deduplicate by primary key
+                        - Coerce types and apply null handling
+                        """))
+                elif d == "gold":
+                    f.write(textwrap.dedent(
+                        """
+                        Gold layer - business ready aggregated datasets
+
+                        Writes optimized parquet partitioned for analytics and Power BI:
+                        gold/{source}/year={YYYY}/month={MM}/day={DD}/
+
+                        Typical content: daily aggregates, conformed dimensions, facts optimized for reporting
+                        """))
+                else:
+                    f.write(textwrap.dedent(
+                        """
+                        Streaming area - short-term micro-batch storage before processing to silver/gold.
+
+                        Convention for streaming micro-batches:
+                        streaming/{source}/YYYY/MM/DD/HH/
+                        """))
+        # sentinel example in bronze
+        success_example = os.path.join(base, "bronze", "_SUCCESS.example")
+        with open(success_example, "w", encoding="utf-8") as f:
+            f.write("This is an example success marker to show how a producer can mark successful micro-batch writes.\n")
+        return created
+
+    def generate_arm_linked_services(self):
+        arm_dir = os.path.join(self.out_dir, "arm")
+        os.makedirs(arm_dir, exist_ok=True)
+        path = os.path.join(arm_dir, "adf_linked_services.json")
+
+        resources = [
+            {
+                "type": "Microsoft.DataFactory/factories/linkedservices",
+                "name": f"LS_ADLSGen2_{self.prefix}",
+                "apiVersion": "2018-06-01",
+                "properties": {
+                    "type": "AzureDataLakeStorageGen2",
+                    "typeProperties": {
+                        "accountName": "<<storage-account-name>>",
+                        "servicePrincipalId": "<<service-principal-id-or-keyvault-ref>>",
+                        "tenant": "<<tenant-id>>"
+                    }
+                },
+                "__comment__": "Replace placeholders with your storage account name and secure credential references. Use Key Vault references in ADF like @Microsoft.KeyVault(VaultName=..., SecretName=...) for secrets."
+            },
+            {
+                "type": "Microsoft.DataFactory/factories/linkedservices",
+                "name": f"LS_EventHub_{self.prefix}",
+                "apiVersion": "2018-06-01",
+                "properties": {
+                    "type": "AzureEventHub",
+                    "typeProperties": {
+                        "connectionString": "<<event-hubs-connection-string-or-keyvault-ref>>"
+                    }
+                },
+                "__comment__": "Connection string should be stored in Key Vault and referenced. Example: '@Microsoft.KeyVault(VaultName=MYKV, SecretName=eh-conn)'."
+            },
+            {
+                "type": "Microsoft.DataFactory/factories/linkedservices",
+                "name": f"LS_KeyVault_{self.prefix}",
+                "apiVersion": "2018-06-01",
+                "properties": {
+                    "type": "AzureKeyVault",
+                    "typeProperties": {
+                        "baseUrl": "https://<<your-vault-name>>.vault.azure.net/"
+                    }
+                },
+                "__comment__": "ADF can reference secrets from this Key Vault. Ensure the Data Factory has access policies to GET secrets." 
+            }
+        ]
+
+        doc = {
+            "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+            "contentVersion": "1.0.0.0",
+            "parameters": {},
+            "resources": resources
+        }
+
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(doc, f, indent=2)
+        return os.path.relpath(path, self.out_dir)
+
+    def generate_adf_pipeline_bronze(self):
+        pipeline_dir = os.path.join(self.out_dir, "arm", "pipelines")
+        os.makedirs(pipeline_dir, exist_ok=True)
+        path = os.path.join(pipeline_dir, "bronze_ingest_pipeline.json")
+
+        pipeline = {
+            "name": "pipeline_bronze_ingest",
+            "properties": {
+                "parameters": {
+                    "sourceName": {"type": "String"},
+                    "watermarkColumn": {"type": "String"},
+                    "containerName": {"type": "String"}
+                },
+                "activities": [
+                    {
+                        "name": "LookupWatermark",
+                        "type": "Lookup",
+                        "typeProperties": {
+                            "source": "<lookup-control-table-sql-or-dataset>",
+                            "__comment__": "Lookup last watermark value from control table to perform incremental copy"
+                        }
+                    },
+                    {
+                        "name": "CopyToBronze",
+                        "type": "Copy",
+                        "typeProperties": {
+                            "source": {"type": "SqlSource", "query": "SELECT * FROM source_table WHERE @{pipeline().parameters.watermarkColumn} > @{activity('LookupWatermark').output.firstRow.last_watermark}"},
+                            "sink": {
+                                "type": "AzureBlobFS",
+                                "dataset": {
+                                    "container": "@pipeline().parameters.containerName",
+                                    "folderPath": "bronze/@{pipeline().parameters.sourceName}/@{formatDateTime(utcNow(),'yyyy/MM/dd')}"
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "name": "UpsertWatermark",
+                        "type": "WebActivity",
+                        "typeProperties": {
+                            "url": "<control-table-endpoint-or-storedproc-to-update-watermark>",
+                            "method": "POST",
+                            "__comment__": "Update the watermark control table after successful copy"
+                        }
+                    }
+                ]
+            }
+        }
+
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(pipeline, f, indent=2)
+        return os.path.relpath(path, self.out_dir)
+
+    def generate_adf_pipeline_silver(self):
+        pipeline_dir = os.path.join(self.out_dir, "arm", "pipelines")
+        os.makedirs(pipeline_dir, exist_ok=True)
+        path = os.path.join(pipeline_dir, "silver_transform_pipeline.json")
+
+        pipeline = {
+            "name": "pipeline_silver_transform",
+            "properties": {
+                "parameters": {
+                    "sourceName": {"type": "String"},
+                    "partitionDate": {"type": "String"}
+                },
+                "activities": [
+                    {
+                        "name": "DataFlowActivity",
+                        "type": "MappingDataFlow",
+                        "typeProperties": {
+                            "description": "Read from Bronze, apply casts, timestamp parsing, dedup by PK, write to Silver",
+                            "inputs": ["bronze/@{pipeline().parameters.sourceName}/@{pipeline().parameters.partitionDate}"],
+                            "outputs": ["silver/@{pipeline().parameters.sourceName}/@{pipeline().parameters.partitionDate}"],
+                            "__comment__": "Transforms: parse timestamps to UTC, standardize column names, deduplicate on primary key column(s), null handling"
+                        }
+                    }
+                ]
+            },
+            "__comment__": "Deduplicate by primary key and apply basic cleaning/transforms in the data flow"
+        }
+
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(pipeline, f, indent=2)
+        return os.path.relpath(path, self.out_dir)
+
+    def generate_adf_pipeline_gold(self):
+        pipeline_dir = os.path.join(self.out_dir, "arm", "pipelines")
+        os.makedirs(pipeline_dir, exist_ok=True)
+        path = os.path.join(pipeline_dir, "gold_aggregate_pipeline.json")
+
+        pipeline = {
+            "name": "pipeline_gold_aggregate",
+            "properties": {
+                "parameters": {
+                    "aggregationWindow": {"type": "String"},
+                    "destPartition": {"type": "String"}
+                },
+                "activities": [
+                    {
+                        "name": "AggregateToGold",
+                        "type": "DatabricksNotebook",
+                        "typeProperties": {
+                            "notebookPath": "<path-to-aggregation-notebook>",
+                            "baseParameters": {
+                                "aggregationWindow": "@pipeline().parameters.aggregationWindow",
+                                "destPartition": "@pipeline().parameters.destPartition"
+                            },
+                            "__comment__": "Typical aggregations: daily totals, counts, top-N, conformed keys. Write parquet optimized for Power BI with partitioning: gold/{source}/year={YYYY}/month={MM}/day={DD}/"
+                        }
+                    }
+                ]
+            }
+        }
+
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(pipeline, f, indent=2)
+        return os.path.relpath(path, self.out_dir)
+
+    def generate_streaming_asa_job(self):
+        sa_dir = os.path.join(self.out_dir, "stream_analytics")
+        os.makedirs(sa_dir, exist_ok=True)
+        path = os.path.join(sa_dir, "streaming_job.json")
+
+        job = {
+            "jobName": f"asa_medallion_stream_{self.prefix}",
+            "inputs": [
+                {
+                    "name": "eh_input",
+                    "type": "EventHub",
+                    "properties": {
+                        "eventHubName": "<<event-hub-name>>",
+                        "consumerGroup": "<<consumer-group>>",
+                        "__comment__": "Use Key Vault or managed identity for secure credentials"
+                    }
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "powerbi_output",
+                    "type": "PowerBI",
+                    "properties": {
+                        "groupName": "<<powerbi-group-name>>",
+                        "datasetName": "<<dataset-name>>",
+                        "tableName": "<<table-name>>",
+                        "__comment__": "Power BI output requires registering an app and granting ASA permissions (or use ASA managed identity)."
+                    }
+                },
+                {
+                    "name": "adlsg2_output",
+                    "type": "DataLake",
+                    "properties": {
+                        "pathPattern": "gold/streaming/{source}/@{date:yyyy}/@{hour:HH}/",
+                        "__comment__": "Writes micro-batches to Gold for historical analysis. Use parquet format."
+                    }
+                }
+            ],
+            "query": "SELECT System.Timestamp() AS EventEnqueuedUtcTime, * INTO [powerbi_output] FROM [eh_input];",
+            "__comment__": "Example ASA job: forwards events to Power BI for realtime tiles and writes to ADLS for historical analysis. Register Power BI credentials and/or grant managed identity access."
+        }
+
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(job, f, indent=2)
+        return os.path.relpath(path, self.out_dir)
+
+    def generate_powerbi_integration_doc(self):
+        pb_dir = os.path.join(self.out_dir, "powerbi")
+        os.makedirs(pb_dir, exist_ok=True)
+        path = os.path.join(pb_dir, "POWERBI_REALTIME.md")
+
+        md = textwrap.dedent(f"""
+        Power BI Real-time & Historical Integration Patterns
+        ==================================================
+
+        Recommended patterns for real-time + historical analytics:
+
+        1) Pattern A - Stream Analytics → Power BI (Push streaming dataset) + persist to Gold
+           - Use ASA to push events to a Power BI streaming dataset for instant visuals (streaming tiles)
+           - Also write micro-batches to Gold (parquet) for historical queries via Synapse Serverless or DirectQuery
+           - Recommended for immediate KPIs and historical analysis
+
+        2) Pattern B - Persist to Gold → Synapse Serverless / Dedicated SQL Pool → DirectQuery
+           - Persist events/aggregates to Gold parquet optimized for analytical reads
+           - Expose via Synapse Serverless or Dedicated SQL Pool and use DirectQuery in Power BI for near-real-time dashboards
+           - Note: DirectQuery has freshness/performance tradeoffs; Premium capacity recommended for heavy workloads
+
+        3) Pattern C - Push dataset + scheduled refresh
+           - For lower-latency near-real-time you can push to an API-backed dataset and schedule frequent refreshes
+
+        Recommended approach: Pattern A (ASA → Power BI for realtime visuals) combined with persisting to Gold for historical/complex analysis.
+
+        Example streaming dataset schema (matching ASA output):
+
+        - EventEnqueuedUtcTime: datetime
+        - source: string
+        - metric1: double
+        - metric2: double
+        - payload: string (json)
+
+        Guidance:
+        - Use streaming tiles for KPI cards, gauges, and simple real-time visuals.
+        - Use Gold parquet + Synapse Serverless for historical reports and complex visuals (DirectQuery or import depending on freshness/size).
+        - For heavy DirectQuery loads, plan for Premium capacity.
+
+        Steps to connect Power BI to ASA:
+        1. Register an Azure AD app or configure ASA to use a managed identity
+        2. Grant the app or identity the required Power BI API permissions (Push dataset permissions)
+        3. Configure Power BI output in ASA with groupName/datasetName/tableName placeholders
+        4. Test streaming tiles and validate persisted Gold parquet with Synapse queries
+
+        """)
+
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(md)
+        return os.path.relpath(path, self.out_dir)
+
+    def generate_all(self):
+        created_files = []
+        # adls structure
+        self.generate_adls_structure()
+        created_files.append("adls_structure/bronze/README.txt")
+        created_files.append("adls_structure/bronze/_SUCCESS.example")
+        created_files.append("adls_structure/silver/README.txt")
+        created_files.append("adls_structure/gold/README.txt")
+        created_files.append("adls_structure/streaming/README.txt")
+
+        # arm linked services
+        created_files.append(self.generate_arm_linked_services())
+
+        # pipelines
+        created_files.append(self.generate_adf_pipeline_bronze())
+        created_files.append(self.generate_adf_pipeline_silver())
+        created_files.append(self.generate_adf_pipeline_gold())
+
+        # stream analytics
+        created_files.append(self.generate_streaming_asa_job())
+
+        # powerbi doc
+        created_files.append(self.generate_powerbi_integration_doc())
+
+        # manifest
+        manifest_path = os.path.join(self.out_dir, "manifest.json")
+        manifest = {
+            "generatedBy": "blueprint.MedallionADFGenerator",
+            "generatedAt": datetime.utcnow().isoformat() + "Z",
+            "files": created_files
+        }
+        with open(manifest_path, "w", encoding="utf-8") as f:
+            json.dump(manifest, f, indent=2)
+
+        print(f"Medallion scaffold generated at: {self.out_dir}")
+        print(f"Manifest: {manifest_path}")
+        return manifest_path
 
 # -----------------------------------
 # Step 0: Read CSV Files
@@ -471,35 +862,17 @@ class AirlineAnalyticsPipeline:
         print("\n🎉 PIPELINE SUCCESSFULLY COMPLETED!")
         print("=" * 80)
         print("✅ Lakehouse created with cart abandonment data")
-        print("✅ Semantic model prepared for Power BI")  
+        print("✅ Semantic model prepared for Power BI")
         print("✅ Ready to build visualizations and insights")
         print("✅ Business logic implemented for customer segmentation")
         
         return True
 
 # -----------------------------------
-# Execute the Complete Pipeline
+# Execute generator when run as script (minimal CLI)
 # -----------------------------------
 if __name__ == "__main__":
-    print("📁 Reading CSV files...")
-    adobe_df, qualtrics_df = read_csv_files()
-
-    if adobe_df is not None and qualtrics_df is not None:
-        print("\n🚀 Initializing Airline Analytics Pipeline...")
-        
-        # Create and run the complete pipeline
-        pipeline = AirlineAnalyticsPipeline(adobe_df, qualtrics_df)
-        success = pipeline.run_complete_pipeline()
-        
-        if success:
-            print(f"\n🎯 NEXT STEPS:")
-            print(f"1. Go to Fabric Portal → Your Workspace")
-            print(f"2. Look for semantic model: {pipeline.semantic_model_name}")
-            print(f"3. Create Power BI report using CartAbandonmentAnalysis table")
-            print(f"4. Build the 3 core visualizations as outlined in the guide")
-            
-    else:
-        print("❌ Cannot proceed without CSV files. Please upload:")
-        print("   - adobe_analytics.csv (to /lakehouse/default/Files/)")
-        print("   - qualtrics.csv (to /lakehouse/default/Files/)")
-        print("\n💡 Upload files to the Files section of your lakehouse")
+    # Generate medallion scaffold and templates
+    gen = MedallionADFGenerator()
+    manifest = gen.generate_all()
+    print(manifest)

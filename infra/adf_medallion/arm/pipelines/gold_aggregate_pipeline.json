@@ -1,0 +1,23 @@
+{
+  "name": "pipeline_gold_aggregate",
+  "properties": {
+    "parameters": {
+      "aggregationWindow": {"type": "String"},
+      "destPartition": {"type": "String"}
+    },
+    "activities": [
+      {
+        "name": "AggregateToGold",
+        "type": "DatabricksNotebook",
+        "typeProperties": {
+          "notebookPath": "<path-to-aggregation-notebook>",
+          "baseParameters": {
+            "aggregationWindow": "@pipeline().parameters.aggregationWindow",
+            "destPartition": "@pipeline().parameters.destPartition"
+          },
+          "__comment__": "Typical aggregations: daily totals, counts, top-N, conformed keys. Write parquet optimized for Power BI with partitioning: gold/{source}/year={YYYY}/month={MM}/day={DD}/"
+        }
+      }
+    ]
+  }
+}

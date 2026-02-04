@@ -1,0 +1,43 @@
+{
+  "name": "pipeline_bronze_ingest",
+  "properties": {
+    "parameters": {
+      "sourceName": {"type": "String"},
+      "watermarkColumn": {"type": "String"},
+      "containerName": {"type": "String"}
+    },
+    "activities": [
+      {
+        "name": "LookupWatermark",
+        "type": "Lookup",
+        "typeProperties": {
+          "source": "<lookup-control-table-sql-or-dataset>",
+          "__comment__": "Lookup last watermark value from control table to perform incremental copy"
+        }
+      },
+      {
+        "name": "CopyToBronze",
+        "type": "Copy",
+        "typeProperties": {
+          "source": {"type": "SqlSource", "query": "SELECT * FROM source_table WHERE @{pipeline().parameters.watermarkColumn} > @{activity('LookupWatermark').output.firstRow.last_watermark}"},
+          "sink": {
+            "type": "AzureBlobFS",
+            "dataset": {
+              "container": "@pipeline().parameters.containerName",
+              "folderPath": "bronze/@{pipeline().parameters.sourceName}/@{formatDateTime(utcNow(),'yyyy/MM/dd')}"
+            }
+          }
+        }
+      },
+      {
+        "name": "UpsertWatermark",
+        "type": "WebActivity",
+        "typeProperties": {
+          "url": "<control-table-endpoint-or-storedproc-to-update-watermark>",
+          "method": "POST",
+          "__comment__": "Update the watermark control table after successful copy"
+        }
+      }
+    ]
+  }
+}
