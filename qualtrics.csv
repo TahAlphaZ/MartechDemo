@@ -1,0 +1,16 @@
+customer_id,survey_date,max_willingness_pay_rush,max_willingness_pay_nonrush,preferred_discount_type,price_sensitivity_score,travel_purpose,satisfaction_current_pricing
+CUST001,2024-10-15,400,300,Percentage,3,Business,3
+CUST002,2024-09-20,250,200,Fixed_Amount,2,Leisure,2
+CUST003,2024-08-30,700,500,Percentage,4,Business,4
+CUST004,2024-11-05,150,120,Fixed_Amount,1,Leisure,2
+CUST005,2024-09-10,600,450,No_Preference,4,Business,4
+CUST006,2024-10-25,280,220,Percentage,2,Mixed,3
+CUST007,2024-11-12,350,280,Fixed_Amount,3,Leisure,3
+CUST008,2024-08-15,130,100,Fixed_Amount,1,Leisure,1
+CUST009,2024-07-20,800,600,Percentage,5,Business,5
+CUST010,2024-09-05,200,160,Percentage,2,Mixed,2
+CUST011,2024-10-08,650,480,No_Preference,4,Business,4
+CUST012,2024-11-18,140,110,Fixed_Amount,1,Leisure,2
+CUST013,2024-08-25,520,400,Percentage,3,Business,3
+CUST014,2024-09-30,180,140,Fixed_Amount,2,Leisure,2
+CUST015,2024-10-20,320,250,Percentage,3,Mixed,3
