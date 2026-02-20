@@ -1,0 +1,13 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "environment": { "value": "dev" },
+    "projectName": { "value": "martech" },
+    "dbConnectorType": { "value": "postgres" },
+    "enableAnalyticsConnectors": { "value": [] },
+    "enableEcommerceConnectors": { "value": ["shopify"] },
+    "administratorLogin": { "reference": { "keyVault": { "id": "/subscriptions/{sub-id}/resourceGroups/{rg}/providers/Microsoft.KeyVault/vaults/{kv}" }, "secretName": "admin-login" } },
+    "administratorPassword": { "reference": { "keyVault": { "id": "/subscriptions/{sub-id}/resourceGroups/{rg}/providers/Microsoft.KeyVault/vaults/{kv}" }, "secretName": "admin-password" } }
+  }
+}

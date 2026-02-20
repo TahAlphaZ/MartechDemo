@@ -1,0 +1,235 @@
+# ============================================================
+# Azure DevOps CI/CD Pipeline - MarTech Fabric Platform
+# TDD-First: Tests run BEFORE any deployment
+# ============================================================
+
+trigger:
+  branches:
+    include:
+      - main
+      - develop
+      - feature/*
+  paths:
+    include:
+      - src/**
+      - tests/**
+      - infra/**
+      - config/**
+      - pipelines/**
+
+pr:
+  branches:
+    include:
+      - main
+      - develop
+
+variables:
+  - group: martech-pipeline-vars  # Azure DevOps variable group
+  - name: pythonVersion
+    value: '3.11'
+  - name: resourceGroup
+    value: 'rg-martech-$(environment)'
+  - name: armTemplatePath
+    value: 'infra/arm-templates'
+
+stages:
+  # ============================================================
+  # STAGE 1: TEST (TDD - Always runs first)
+  # ============================================================
+  - stage: Test
+    displayName: 'TDD - Run All Tests'
+    jobs:
+      - job: UnitTests
+        displayName: 'Unit Tests'
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '$(pythonVersion)'
+
+          - script: |
+              python -m pip install --upgrade pip
+              pip install -r requirements.txt
+              pip install -r requirements-dev.txt
+            displayName: 'Install dependencies'
+
+          - script: |
+              python -m pytest tests/unit/ \
+                --junitxml=test-results/unit-results.xml \
+                --cov=src \
+                --cov-report=xml:coverage/coverage.xml \
+                --cov-report=html:coverage/htmlcov \
+                -v
+            displayName: 'Run unit tests with coverage'
+
+          - task: PublishTestResults@2
+            inputs:
+              testResultsFormat: 'JUnit'
+              testResultsFiles: 'test-results/unit-results.xml'
+            condition: always()
+
+          - task: PublishCodeCoverageResults@2
+            inputs:
+              codeCoverageTool: 'Cobertura'
+              summaryFileLocation: 'coverage/coverage.xml'
+
+      - job: ConnectorTests
+        displayName: 'Connector Registry Tests'
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '$(pythonVersion)'
+
+          - script: |
+              pip install -r requirements.txt pyyaml pytest
+              python -m pytest tests/unit/connectors/ -v \
+                --junitxml=test-results/connector-results.xml
+            displayName: 'Validate connector registry & factory'
+
+          - task: PublishTestResults@2
+            inputs:
+              testResultsFormat: 'JUnit'
+              testResultsFiles: 'test-results/connector-results.xml'
+            condition: always()
+
+      - job: ARMValidation
+        displayName: 'ARM Template Validation'
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - task: AzureCLI@2
+            inputs:
+              azureSubscription: '$(azureServiceConnection)'
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                az deployment group validate \
+                  --resource-group $(resourceGroup) \
+                  --template-file $(armTemplatePath)/main.json \
+                  --parameters $(armTemplatePath)/parameters/$(environment).parameters.json
+            displayName: 'Validate ARM templates'
+
+      - job: LintAndFormat
+        displayName: 'Code Quality Checks'
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - script: |
+              pip install ruff mypy
+              ruff check src/ tests/
+              mypy src/ --ignore-missing-imports
+            displayName: 'Lint and type-check'
+
+  # ============================================================
+  # STAGE 2: BUILD (Only if tests pass)
+  # ============================================================
+  - stage: Build
+    displayName: 'Build Artifacts'
+    dependsOn: Test
+    condition: succeeded()
+    jobs:
+      - job: BuildArtifacts
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - task: CopyFiles@2
+            inputs:
+              sourceFolder: '$(Build.SourcesDirectory)'
+              contents: |
+                infra/**
+                pipelines/**
+                src/**
+                config/**
+                tests/data-quality/**
+              targetFolder: '$(Build.ArtifactStagingDirectory)'
+
+          - task: PublishBuildArtifacts@1
+            inputs:
+              pathtoPublish: '$(Build.ArtifactStagingDirectory)'
+              artifactName: 'martech-pipeline-artifacts'
+
+  # ============================================================
+  # STAGE 3: DEPLOY DEV
+  # ============================================================
+  - stage: DeployDev
+    displayName: 'Deploy to Dev'
+    dependsOn: Build
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/develop'))
+    variables:
+      environment: 'dev'
+    jobs:
+      - deployment: DeployInfra
+        displayName: 'Deploy Infrastructure'
+        environment: 'martech-dev'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: AzureCLI@2
+                  inputs:
+                    azureSubscription: '$(azureServiceConnection)'
+                    scriptType: 'bash'
+                    scriptLocation: 'inlineScript'
+                    inlineScript: |
+                      az deployment group create \
+                        --resource-group $(resourceGroup) \
+                        --template-file $(Pipeline.Workspace)/martech-pipeline-artifacts/infra/arm-templates/main.json \
+                        --parameters $(Pipeline.Workspace)/martech-pipeline-artifacts/infra/arm-templates/parameters/dev.parameters.json
+                  displayName: 'Deploy ARM templates'
+
+      - job: DataQualityTests
+        displayName: 'Run Data Quality Tests (Dev)'
+        dependsOn: DeployInfra
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - script: |
+              pip install -r requirements.txt
+              python -m pytest tests/data-quality/ -v \
+                --junitxml=test-results/dq-results.xml \
+                -k "not sla"
+            displayName: 'Run data quality validations'
+
+  # ============================================================
+  # STAGE 4: DEPLOY PROD (Manual approval gate)
+  # ============================================================
+  - stage: DeployProd
+    displayName: 'Deploy to Production'
+    dependsOn: DeployDev
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    variables:
+      environment: 'prod'
+    jobs:
+      - deployment: DeployInfraProd
+        displayName: 'Deploy Production Infrastructure'
+        environment: 'martech-prod'  # Has manual approval gate
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: AzureCLI@2
+                  inputs:
+                    azureSubscription: '$(azureServiceConnection)'
+                    scriptType: 'bash'
+                    scriptLocation: 'inlineScript'
+                    inlineScript: |
+                      az deployment group create \
+                        --resource-group $(resourceGroup) \
+                        --template-file $(Pipeline.Workspace)/martech-pipeline-artifacts/infra/arm-templates/main.json \
+                        --parameters $(Pipeline.Workspace)/martech-pipeline-artifacts/infra/arm-templates/parameters/prod.parameters.json
+                  displayName: 'Deploy ARM templates to prod'
+
+      - job: SmokeTests
+        displayName: 'Production Smoke Tests'
+        dependsOn: DeployInfraProd
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - script: |
+              python -m pytest tests/data-quality/ -v \
+                --junitxml=test-results/smoke-results.xml \
+                -k "sla or completeness"
+            displayName: 'Run production smoke tests'

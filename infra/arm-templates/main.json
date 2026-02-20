@@ -1,0 +1,145 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "description": "MarTech Retail Pipeline - Master ARM Template. Orchestrates all Azure resources for the Fabric-based Medallion data platform.",
+    "author": "MarTech Platform Team",
+    "version": "1.0.0"
+  },
+  "parameters": {
+    "environment": {
+      "type": "string",
+      "allowedValues": ["dev", "staging", "prod"],
+      "defaultValue": "dev",
+      "metadata": { "description": "Deployment environment" }
+    },
+    "projectName": {
+      "type": "string",
+      "defaultValue": "martech",
+      "metadata": { "description": "Project name prefix for all resources" }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": { "description": "Azure region for all resources" }
+    },
+    "dbConnectorType": {
+      "type": "string",
+      "allowedValues": ["postgres", "sqlserver", "mysql"],
+      "defaultValue": "postgres",
+      "metadata": { "description": "Database connector type - swap easily between DB engines" }
+    },
+    "enableAnalyticsConnectors": {
+      "type": "array",
+      "defaultValue": [],
+      "metadata": { "description": "List of analytics connectors to enable: 'google_analytics', 'adobe_analytics', 'mixpanel'" }
+    },
+    "enableEcommerceConnectors": {
+      "type": "array",
+      "defaultValue": ["shopify"],
+      "metadata": { "description": "List of ecommerce connectors: 'shopify', 'magento', 'woocommerce'" }
+    },
+    "administratorLogin": {
+      "type": "securestring",
+      "metadata": { "description": "Admin username for database resources" }
+    },
+    "administratorPassword": {
+      "type": "securestring",
+      "metadata": { "description": "Admin password for database resources" }
+    }
+  },
+  "variables": {
+    "baseName": "[concat(parameters('projectName'), '-', parameters('environment'))]",
+    "dataFactoryName": "[concat(variables('baseName'), '-adf')]",
+    "storageAccountName": "[replace(concat(parameters('projectName'), parameters('environment'), 'adls'), '-', '')]",
+    "keyVaultName": "[concat(variables('baseName'), '-kv')]",
+    "logAnalyticsName": "[concat(variables('baseName'), '-logs')]",
+    "fabricCapacityName": "[concat(variables('baseName'), '-fabric')]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2021-04-01",
+      "name": "storageDeployment",
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "relativePath": "modules/storage.json"
+        },
+        "parameters": {
+          "storageAccountName": { "value": "[variables('storageAccountName')]" },
+          "location": { "value": "[parameters('location')]" },
+          "environment": { "value": "[parameters('environment')]" }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2021-04-01",
+      "name": "keyVaultDeployment",
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "relativePath": "modules/keyvault.json"
+        },
+        "parameters": {
+          "keyVaultName": { "value": "[variables('keyVaultName')]" },
+          "location": { "value": "[parameters('location')]" }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2021-04-01",
+      "name": "dataFactoryDeployment",
+      "dependsOn": [
+        "storageDeployment",
+        "keyVaultDeployment"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "relativePath": "modules/data-factory.json"
+        },
+        "parameters": {
+          "dataFactoryName": { "value": "[variables('dataFactoryName')]" },
+          "location": { "value": "[parameters('location')]" },
+          "storageAccountId": { "value": "[reference('storageDeployment').outputs.storageAccountId.value]" },
+          "keyVaultUri": { "value": "[reference('keyVaultDeployment').outputs.keyVaultUri.value]" },
+          "dbConnectorType": { "value": "[parameters('dbConnectorType')]" },
+          "enableAnalyticsConnectors": { "value": "[parameters('enableAnalyticsConnectors')]" },
+          "enableEcommerceConnectors": { "value": "[parameters('enableEcommerceConnectors')]" }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2021-04-01",
+      "name": "monitoringDeployment",
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "relativePath": "modules/monitoring.json"
+        },
+        "parameters": {
+          "logAnalyticsName": { "value": "[variables('logAnalyticsName')]" },
+          "location": { "value": "[parameters('location')]" }
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "dataFactoryName": {
+      "type": "string",
+      "value": "[variables('dataFactoryName')]"
+    },
+    "storageAccountName": {
+      "type": "string",
+      "value": "[variables('storageAccountName')]"
+    },
+    "keyVaultName": {
+      "type": "string",
+      "value": "[variables('keyVaultName')]"
+    }
+  }
+}

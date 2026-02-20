@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Azure
+.env
+*.tfstate
+*.tfstate.backup
+
+# Secrets
+credentials.json
+*.pem
+*.key
+
+# Test outputs
+.pytest_cache/
+htmlcov/
+coverage/
+test-results/
+
+# Skill workspaces
+*-workspace/

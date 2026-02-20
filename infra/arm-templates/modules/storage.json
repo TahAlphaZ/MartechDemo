@@ -1,0 +1,69 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "description": "ADLS Gen2 Storage Account with Medallion container structure (raw/silver/gold)"
+  },
+  "parameters": {
+    "storageAccountName": { "type": "string" },
+    "location": { "type": "string" },
+    "environment": { "type": "string" }
+  },
+  "variables": {
+    "skuMap": {
+      "dev": "Standard_LRS",
+      "staging": "Standard_GRS",
+      "prod": "Standard_RAGRS"
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2023-01-01",
+      "name": "[parameters('storageAccountName')]",
+      "location": "[parameters('location')]",
+      "kind": "StorageV2",
+      "sku": {
+        "name": "[variables('skuMap')[parameters('environment')]]"
+      },
+      "properties": {
+        "isHnsEnabled": true,
+        "accessTier": "Hot",
+        "supportsHttpsTrafficOnly": true,
+        "minimumTlsVersion": "TLS1_2",
+        "networkAcls": {
+          "defaultAction": "Deny",
+          "bypass": "AzureServices"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+      "apiVersion": "2023-01-01",
+      "name": "[concat(parameters('storageAccountName'), '/default/raw')]",
+      "dependsOn": ["[parameters('storageAccountName')]"]
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+      "apiVersion": "2023-01-01",
+      "name": "[concat(parameters('storageAccountName'), '/default/silver')]",
+      "dependsOn": ["[parameters('storageAccountName')]"]
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+      "apiVersion": "2023-01-01",
+      "name": "[concat(parameters('storageAccountName'), '/default/gold')]",
+      "dependsOn": ["[parameters('storageAccountName')]"]
+    }
+  ],
+  "outputs": {
+    "storageAccountId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+    },
+    "primaryEndpoint": {
+      "type": "string",
+      "value": "[reference(parameters('storageAccountName')).primaryEndpoints.dfs]"
+    }
+  }
+}

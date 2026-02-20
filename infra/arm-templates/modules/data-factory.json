@@ -1,0 +1,126 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "description": "Azure Data Factory with extensible linked services and connector pattern"
+  },
+  "parameters": {
+    "dataFactoryName": { "type": "string" },
+    "location": { "type": "string" },
+    "storageAccountId": { "type": "string" },
+    "keyVaultUri": { "type": "string" },
+    "dbConnectorType": {
+      "type": "string",
+      "allowedValues": ["postgres", "sqlserver", "mysql"]
+    },
+    "enableAnalyticsConnectors": { "type": "array" },
+    "enableEcommerceConnectors": { "type": "array" }
+  },
+  "variables": {
+    "dbLinkedServiceType": {
+      "postgres": "AzurePostgreSql",
+      "sqlserver": "SqlServer",
+      "mysql": "MySql"
+    },
+    "dbConnectionStringSecret": {
+      "postgres": "postgres-connection-string",
+      "sqlserver": "sqlserver-connection-string",
+      "mysql": "mysql-connection-string"
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.DataFactory/factories",
+      "apiVersion": "2018-06-01",
+      "name": "[parameters('dataFactoryName')]",
+      "location": "[parameters('location')]",
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "globalParameters": {
+          "environment": {
+            "type": "String",
+            "value": "dev"
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.DataFactory/factories/linkedservices",
+      "apiVersion": "2018-06-01",
+      "name": "[concat(parameters('dataFactoryName'), '/ls_keyvault')]",
+      "dependsOn": ["[parameters('dataFactoryName')]"],
+      "properties": {
+        "type": "AzureKeyVault",
+        "typeProperties": {
+          "baseUrl": "[parameters('keyVaultUri')]"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.DataFactory/factories/linkedservices",
+      "apiVersion": "2018-06-01",
+      "name": "[concat(parameters('dataFactoryName'), '/ls_adls_lakehouse')]",
+      "dependsOn": ["[parameters('dataFactoryName')]"],
+      "properties": {
+        "type": "AzureBlobFS",
+        "typeProperties": {
+          "url": "[concat('https://', last(split(parameters('storageAccountId'), '/')), '.dfs.core.windows.net')]"
+        }
+      }
+    },
+    {
+      "comments": "Dynamic DB Linked Service - type changes based on dbConnectorType parameter",
+      "type": "Microsoft.DataFactory/factories/linkedservices",
+      "apiVersion": "2018-06-01",
+      "name": "[concat(parameters('dataFactoryName'), '/ls_source_database')]",
+      "dependsOn": [
+        "[parameters('dataFactoryName')]",
+        "[concat(parameters('dataFactoryName'), '/ls_keyvault')]"
+      ],
+      "properties": {
+        "type": "[variables('dbLinkedServiceType')[parameters('dbConnectorType')]]",
+        "typeProperties": {
+          "connectionString": {
+            "type": "AzureKeyVaultSecret",
+            "store": {
+              "referenceName": "ls_keyvault",
+              "type": "LinkedServiceReference"
+            },
+            "secretName": "[variables('dbConnectionStringSecret')[parameters('dbConnectorType')]]"
+          }
+        }
+      }
+    },
+    {
+      "comments": "Generic REST API linked service for ecommerce/analytics connectors",
+      "type": "Microsoft.DataFactory/factories/linkedservices",
+      "apiVersion": "2018-06-01",
+      "name": "[concat(parameters('dataFactoryName'), '/ls_rest_api')]",
+      "dependsOn": [
+        "[parameters('dataFactoryName')]",
+        "[concat(parameters('dataFactoryName'), '/ls_keyvault')]"
+      ],
+      "properties": {
+        "type": "RestService",
+        "typeProperties": {
+          "url": "https://placeholder.api.com",
+          "enableServerCertificateValidation": true,
+          "authenticationType": "Anonymous"
+        },
+        "annotations": ["extensible", "api-connector"]
+      }
+    }
+  ],
+  "outputs": {
+    "dataFactoryId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.DataFactory/factories', parameters('dataFactoryName'))]"
+    },
+    "dataFactoryPrincipalId": {
+      "type": "string",
+      "value": "[reference(parameters('dataFactoryName'), '2018-06-01', 'Full').identity.principalId]"
+    }
+  }
+}

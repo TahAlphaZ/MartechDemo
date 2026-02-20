@@ -1,0 +1,153 @@
+# ============================================================
+# CONNECTOR REGISTRY - MarTech Fabric Pipeline
+# ============================================================
+# This is the single source of truth for all data connectors.
+# Subagents: Add new connectors by appending to the appropriate
+# section below. The pipeline framework auto-discovers entries.
+# ============================================================
+
+# --- DATABASE CONNECTORS ---
+# To switch DB: change 'active' to the desired engine.
+# All configs share the same interface (IDBConnector).
+databases:
+  active: postgres  # Options: postgres | sqlserver | mysql | oracle
+  connectors:
+    postgres:
+      driver: "org.postgresql.Driver"
+      arm_linked_service_type: "AzurePostgreSql"
+      keyvault_secret: "postgres-connection-string"
+      default_port: 5432
+      jdbc_template: "jdbc:postgresql://{host}:{port}/{database}"
+      test_query: "SELECT 1"
+
+    sqlserver:
+      driver: "com.microsoft.sqlserver.jdbc.SQLServerDriver"
+      arm_linked_service_type: "SqlServer"
+      keyvault_secret: "sqlserver-connection-string"
+      default_port: 1433
+      jdbc_template: "jdbc:sqlserver://{host}:{port};databaseName={database}"
+      test_query: "SELECT 1"
+
+    mysql:
+      driver: "com.mysql.cj.jdbc.Driver"
+      arm_linked_service_type: "MySql"
+      keyvault_secret: "mysql-connection-string"
+      default_port: 3306
+      jdbc_template: "jdbc:mysql://{host}:{port}/{database}"
+      test_query: "SELECT 1"
+
+# --- FILE/STORAGE CONNECTORS ---
+file_storage:
+  active: sftp
+  connectors:
+    sftp:
+      type: "Sftp"
+      keyvault_secret: "sftp-credentials"
+      landing_path: "raw/files/sftp"
+
+    azure_blob:
+      type: "AzureBlobStorage"
+      keyvault_secret: "blob-connection-string"
+      landing_path: "raw/files/blob"
+
+# --- ECOMMERCE API CONNECTORS ---
+# Subagents: Add new ecommerce platforms here.
+ecommerce:
+  active:
+    - shopify
+  connectors:
+    shopify:
+      base_url: "https://{store}.myshopify.com/admin/api/2024-01"
+      auth_type: "api_key"
+      keyvault_secret: "shopify-api-key"
+      endpoints:
+        orders: "/orders.json"
+        products: "/products.json"
+        customers: "/customers.json"
+      rate_limit: 2  # requests per second
+      landing_path: "raw/ecommerce/shopify"
+
+    magento:
+      base_url: "https://{domain}/rest/V1"
+      auth_type: "bearer_token"
+      keyvault_secret: "magento-bearer-token"
+      endpoints:
+        orders: "/orders"
+        products: "/products"
+        customers: "/customers"
+      rate_limit: 10
+      landing_path: "raw/ecommerce/magento"
+
+    woocommerce:
+      base_url: "https://{domain}/wp-json/wc/v3"
+      auth_type: "oauth"
+      keyvault_secret: "woocommerce-oauth-keys"
+      endpoints:
+        orders: "/orders"
+        products: "/products"
+        customers: "/customers"
+      rate_limit: 5
+      landing_path: "raw/ecommerce/woocommerce"
+
+# --- ANALYTICS CONNECTORS ---
+# Subagents: Add new analytics platforms here.
+analytics:
+  active: []  # Enable by adding: ["google_analytics", "adobe_analytics"]
+  connectors:
+    google_analytics:
+      type: "rest_api"
+      base_url: "https://analyticsdata.googleapis.com/v1beta"
+      auth_type: "service_account"
+      keyvault_secret: "ga4-service-account-json"
+      property_id_secret: "ga4-property-id"
+      endpoints:
+        reports: "/properties/{property_id}:runReport"
+        realtime: "/properties/{property_id}:runRealtimeReport"
+      landing_path: "raw/analytics/google_analytics"
+      default_dimensions:
+        - "date"
+        - "sessionSource"
+        - "sessionMedium"
+        - "sessionCampaignName"
+      default_metrics:
+        - "sessions"
+        - "totalUsers"
+        - "conversions"
+        - "totalRevenue"
+
+    adobe_analytics:
+      type: "rest_api"
+      base_url: "https://analytics.adobe.io/api/{company_id}"
+      auth_type: "jwt"
+      keyvault_secret: "adobe-analytics-jwt"
+      endpoints:
+        reports: "/reports"
+        segments: "/segments"
+      landing_path: "raw/analytics/adobe_analytics"
+
+    mixpanel:
+      type: "rest_api"
+      base_url: "https://data.mixpanel.com/api/2.0"
+      auth_type: "service_account"
+      keyvault_secret: "mixpanel-service-account"
+      endpoints:
+        export: "/export"
+        engage: "/engage"
+      landing_path: "raw/analytics/mixpanel"
+
+# --- MEDALLION ZONE CONFIGURATION ---
+medallion:
+  raw:
+    format: "parquet"
+    partition_by: ["_ingestion_date", "_source_system"]
+    retention_days: 90
+  silver:
+    format: "delta"
+    partition_by: ["_processing_date"]
+    retention_days: 365
+    dedup_strategy: "latest_by_timestamp"
+  gold:
+    format: "delta"
+    partition_by: ["report_date"]
+    retention_days: -1  # Keep forever
+    refresh_schedule: "0 6 * * *"  # Daily at 6 AM UTC
