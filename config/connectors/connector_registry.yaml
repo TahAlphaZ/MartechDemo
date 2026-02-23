@@ -151,3 +151,22 @@ medallion:
     partition_by: ["report_date"]
     retention_days: -1  # Keep forever
     refresh_schedule: "0 6 * * *"  # Daily at 6 AM UTC
+
+# --- CRM CONNECTORS ---
+crm:
+  active:
+    - salesforce
+  connectors:
+    salesforce:
+      type: "rest_api"
+      base_url: "https://{instance}.salesforce.com"
+      auth_type: "oauth2"
+      token_url: "https://login.salesforce.com/services/oauth2/token"
+      api_version: "v59.0"
+      keyvault_secret: "salesforce-oauth-secret"
+      endpoints:
+        Contact: "/services/data/{api_version}/query"
+        Lead: "/services/data/{api_version}/query"
+        Opportunity: "/services/data/{api_version}/query"
+        Account: "/services/data/{api_version}/query"
+      landing_path: "raw/crm/salesforce"

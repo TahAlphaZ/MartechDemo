@@ -12,6 +12,9 @@ from src.connectors.base_connector import (
     APIConnector,
 )
 
+# Import SalesForceConnector so we can register it
+from src.connectors.salesforce_connector import SalesForceConnector
+
 # ============================================================
 # CONNECTOR CLASS MAP
 # Subagents: Add your connector class here after implementing it.
@@ -30,6 +33,8 @@ CONNECTOR_CLASS_MAP: Dict[str, type] = {
     "google_analytics": APIConnector,
     "adobe_analytics": APIConnector,
     "mixpanel": APIConnector,
+    # CRM connectors
+    "salesforce": SalesForceConnector,
 }
 
 
