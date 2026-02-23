@@ -15,6 +15,7 @@ from src.connectors.connector_factory import (
     CONNECTOR_CLASS_MAP,
 )
 from src.connectors.base_connector import ConnectorConfig, DatabaseConnector, APIConnector
+from src.connectors.salesforce_connector import SalesForceConnector
 
 
 class TestRegistryLoading:
@@ -128,3 +129,15 @@ class TestConnectorFactory:
             assert issubclass(cls, (DatabaseConnector, APIConnector)), (
                 f"Connector '{name}' class must inherit DatabaseConnector or APIConnector"
             )
+
+    def test_create_salesforce_connector(self):
+        config = ConnectorConfig(
+            name="salesforce",
+            connector_type="api",
+            keyvault_secret="salesforce-oauth-secret",
+            landing_path="raw/crm/salesforce",
+            extra={"token_url": "https://login.salesforce.com/services/oauth2/token"},
+        )
+        fake_secret = {"client_id": "x", "client_secret": "y", "token_url": "https://login.salesforce.com/services/oauth2/token"}
+        connector = create_connector(config, fake_secret)
+        assert isinstance(connector, SalesForceConnector)
