@@ -34,3 +34,6 @@ test-results/
 
 # Skill workspaces
 *-workspace/
+
+# Skills directory
+skills/
