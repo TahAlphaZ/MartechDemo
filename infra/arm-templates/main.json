@@ -129,7 +129,8 @@
         "parameters": {
           "logAnalyticsName": { "value": "[variables('logAnalyticsName')]" },
           "location": { "value": "[parameters('location')]" },
-          "dataFactoryId": { "value": "[reference('dataFactoryDeployment').outputs.dataFactoryId.value]" }
+          "dataFactoryId": { "value": "[reference('dataFactoryDeployment').outputs.dataFactoryId.value]" },
+          "environment": { "value": "[parameters('environment')]" }
         }
       }
     }
