@@ -7,8 +7,10 @@
   "parameters": {
     "dataFactoryName": { "type": "string" },
     "location": { "type": "string" },
+    "environment": { "type": "string" },
     "storageAccountId": { "type": "string" },
     "keyVaultUri": { "type": "string" },
+    "keyVaultId": { "type": "string" },
     "dbConnectorType": {
       "type": "string",
       "allowedValues": ["postgres", "sqlserver", "mysql"]
@@ -26,7 +28,9 @@
       "postgres": "postgres-connection-string",
       "sqlserver": "sqlserver-connection-string",
       "mysql": "mysql-connection-string"
-    }
+    },
+    "keyVaultSecretsUserRoleId": "b86a8fe4-44ce-4948-aee5-eccb2c155cd7",
+    "storageBlobDataContributorRoleId": "ba92f5b4-2d11-453d-a403-e96b0029c9fe"
   },
   "resources": [
     {
@@ -41,9 +45,37 @@
         "globalParameters": {
           "environment": {
             "type": "String",
-            "value": "dev"
+            "value": "[parameters('environment')]"
           }
         }
+      }
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "name": "[guid(parameters('keyVaultId'), 'kv-secrets-user', parameters('dataFactoryName'))]",
+      "scope": "[parameters('keyVaultId')]",
+      "dependsOn": [
+        "[parameters('dataFactoryName')]"
+      ],
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('keyVaultSecretsUserRoleId'))]",
+        "principalId": "[reference(parameters('dataFactoryName'), '2018-06-01', 'Full').identity.principalId]",
+        "principalType": "ServicePrincipal"
+      }
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "name": "[guid(parameters('storageAccountId'), 'storage-blob-contributor', parameters('dataFactoryName'))]",
+      "scope": "[parameters('storageAccountId')]",
+      "dependsOn": [
+        "[parameters('dataFactoryName')]"
+      ],
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('storageBlobDataContributorRoleId'))]",
+        "principalId": "[reference(parameters('dataFactoryName'), '2018-06-01', 'Full').identity.principalId]",
+        "principalType": "ServicePrincipal"
       }
     },
     {

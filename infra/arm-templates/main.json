@@ -104,8 +104,10 @@
         "parameters": {
           "dataFactoryName": { "value": "[variables('dataFactoryName')]" },
           "location": { "value": "[parameters('location')]" },
+          "environment": { "value": "[parameters('environment')]" },
           "storageAccountId": { "value": "[reference('storageDeployment').outputs.storageAccountId.value]" },
           "keyVaultUri": { "value": "[reference('keyVaultDeployment').outputs.keyVaultUri.value]" },
+          "keyVaultId": { "value": "[reference('keyVaultDeployment').outputs.keyVaultId.value]" },
           "dbConnectorType": { "value": "[parameters('dbConnectorType')]" },
           "enableAnalyticsConnectors": { "value": "[parameters('enableAnalyticsConnectors')]" },
           "enableEcommerceConnectors": { "value": "[parameters('enableEcommerceConnectors')]" }
@@ -116,6 +118,9 @@
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2021-04-01",
       "name": "monitoringDeployment",
+      "dependsOn": [
+        "dataFactoryDeployment"
+      ],
       "properties": {
         "mode": "Incremental",
         "templateLink": {
@@ -123,7 +128,8 @@
         },
         "parameters": {
           "logAnalyticsName": { "value": "[variables('logAnalyticsName')]" },
-          "location": { "value": "[parameters('location')]" }
+          "location": { "value": "[parameters('location')]" },
+          "dataFactoryId": { "value": "[reference('dataFactoryDeployment').outputs.dataFactoryId.value]" }
         }
       }
     }

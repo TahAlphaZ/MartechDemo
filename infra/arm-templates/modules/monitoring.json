@@ -3,7 +3,8 @@
   "contentVersion": "1.0.0.0",
   "parameters": {
     "logAnalyticsName": { "type": "string" },
-    "location": { "type": "string" }
+    "location": { "type": "string" },
+    "dataFactoryId": { "type": "string" }
   },
   "resources": [
     {
@@ -19,8 +20,11 @@
     {
       "type": "Microsoft.Insights/diagnosticSettings",
       "apiVersion": "2021-05-01-preview",
-      "name": "pipeline-diagnostics",
-      "dependsOn": ["[parameters('logAnalyticsName')]"],
+      "name": "adf-diagnostics",
+      "scope": "[parameters('dataFactoryId')]",
+      "dependsOn": [
+        "[parameters('logAnalyticsName')]"
+      ],
       "properties": {
         "workspaceId": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsName'))]",
         "logs": [
