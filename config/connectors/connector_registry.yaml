@@ -89,6 +89,22 @@ ecommerce:
       rate_limit: 5
       landing_path: "raw/ecommerce/woocommerce"
 
+# --- CRM CONNECTORS ---
+crm:
+  active: []
+  connectors:
+    salesforce:
+      type: "rest_api"
+      base_url: "https://{instance}.salesforce.com/services/data/v59.0"
+      auth_type: "oauth_bearer"
+      keyvault_secret: "salesforce-oauth-token"
+      endpoints:
+        accounts: "/sobjects/Account"
+        contacts: "/sobjects/Contact"
+        opportunities: "/sobjects/Opportunity"
+      rate_limit: 10
+      landing_path: "raw/crm/salesforce"
+
 # --- ANALYTICS CONNECTORS ---
 # Subagents: Add new analytics platforms here.
 analytics:

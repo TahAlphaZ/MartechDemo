@@ -11,6 +11,7 @@ from src.connectors.base_connector import (
     DatabaseConnector,
     APIConnector,
 )
+from src.connectors.salesforce_connector import SalesforceConnector
 
 # ============================================================
 # CONNECTOR CLASS MAP
@@ -26,6 +27,8 @@ CONNECTOR_CLASS_MAP: Dict[str, type] = {
     "shopify": APIConnector,
     "magento": APIConnector,
     "woocommerce": APIConnector,
+    # CRM connectors
+    "salesforce": SalesforceConnector,
     # Analytics connectors (override with specific classes when ready)
     "google_analytics": APIConnector,
     "adobe_analytics": APIConnector,
@@ -84,6 +87,18 @@ def get_active_connectors(registry: Dict[str, Any]) -> Dict[str, ConnectorConfig
             keyvault_secret=ecom_config.get("keyvault_secret", ""),
             landing_path=ecom_config.get("landing_path", f"raw/ecommerce/{ecom_name}"),
             extra=ecom_config,
+        )
+
+    # CRM connectors
+    crm_section = registry.get("crm", {})
+    for crm_name in crm_section.get("active", []):
+        crm_config = crm_section.get("connectors", {}).get(crm_name, {})
+        active[f"crm_{crm_name}"] = ConnectorConfig(
+            name=crm_name,
+            connector_type="api",
+            keyvault_secret=crm_config.get("keyvault_secret", ""),
+            landing_path=crm_config.get("landing_path", f"raw/crm/{crm_name}"),
+            extra=crm_config,
         )
 
     # Analytics connectors
