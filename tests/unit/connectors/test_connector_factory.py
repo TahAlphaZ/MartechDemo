@@ -15,6 +15,7 @@ from src.connectors.connector_factory import (
     CONNECTOR_CLASS_MAP,
 )
 from src.connectors.base_connector import ConnectorConfig, DatabaseConnector, APIConnector
+from src.connectors.salesforce_connector import SalesforceConnector
 
 
 class TestRegistryLoading:
@@ -79,6 +80,12 @@ class TestActiveConnectorResolution:
         assert "analytics_google_analytics" in active
         assert "analytics_adobe_analytics" in active
 
+    def test_enabling_salesforce_analytics(self):
+        registry = load_registry()
+        registry["analytics"]["active"] = ["salesforce"]
+        active = get_active_connectors(registry)
+        assert "analytics_salesforce" in active
+
     def test_active_connectors_have_valid_config(self):
         registry = load_registry()
         active = get_active_connectors(registry)
@@ -111,6 +118,17 @@ class TestConnectorFactory:
         )
         connector = create_connector(config, "test-api-key")
         assert isinstance(connector, APIConnector)
+
+    def test_create_salesforce_connector(self):
+        config = ConnectorConfig(
+            name="salesforce",
+            connector_type="analytics",
+            keyvault_secret="salesforce-secret",
+            landing_path="raw/analytics/salesforce",
+            extra={"base_url": "https://test.salesforce.com"},
+        )
+        connector = create_connector(config, "test-token")
+        assert isinstance(connector, SalesforceConnector)
 
     def test_unknown_connector_raises(self):
         config = ConnectorConfig(

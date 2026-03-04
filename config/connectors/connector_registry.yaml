@@ -135,6 +135,17 @@ analytics:
         engage: "/engage"
       landing_path: "raw/analytics/mixpanel"
 
+    salesforce:
+      type: "rest_api"
+      base_url: "https://{instance}.salesforce.com/services/data/v59.0"
+      auth_type: "oauth_bearer"
+      keyvault_secret: "salesforce-access-token"
+      endpoints:
+        objects: "/sobjects"
+        query: "/query"
+      landing_path: "raw/analytics/salesforce"
+      rate_limit: 10
+
 # --- MEDALLION ZONE CONFIGURATION ---
 medallion:
   raw:

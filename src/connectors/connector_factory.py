@@ -11,6 +11,7 @@ from src.connectors.base_connector import (
     DatabaseConnector,
     APIConnector,
 )
+from src.connectors.salesforce_connector import SalesforceConnector
 
 # ============================================================
 # CONNECTOR CLASS MAP
@@ -30,6 +31,7 @@ CONNECTOR_CLASS_MAP: Dict[str, type] = {
     "google_analytics": APIConnector,
     "adobe_analytics": APIConnector,
     "mixpanel": APIConnector,
+    "salesforce": SalesforceConnector,
 }
 
 
