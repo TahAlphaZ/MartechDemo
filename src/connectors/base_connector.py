@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ConnectorConfig:
     """Configuration loaded from connector_registry.yaml"""
+
     name: str
     connector_type: str  # "database", "file", "api", "analytics"
     keyvault_secret: str
@@ -32,9 +33,9 @@ class BaseConnector(ABC):
     5. Write tests in tests/unit/connectors/
     """
 
-    def __init__(self, config: ConnectorConfig):
-        self.config = config
-        self._is_connected = False
+    def __init__(self, config: ConnectorConfig) -> None:
+        self.config: ConnectorConfig = config
+        self._is_connected: bool = False
 
     @abstractmethod
     def validate_connection(self) -> bool:
@@ -42,7 +43,7 @@ class BaseConnector(ABC):
         ...
 
     @abstractmethod
-    def extract(self, query_or_endpoint: str, params: Optional[Dict] = None) -> Any:
+    def extract(self, query_or_endpoint: str, params: Optional[Dict[str, Any]] = None) -> Any:
         """
         Extract data from the source.
         Returns data in a format suitable for landing in the raw zone.
@@ -69,22 +70,22 @@ class DatabaseConnector(BaseConnector):
     Swap between Postgres/SQL Server/MySQL by changing connector_registry.yaml.
     """
 
-    def __init__(self, config: ConnectorConfig, connection_string: str):
+    def __init__(self, config: ConnectorConfig, connection_string: str) -> None:
         super().__init__(config)
-        self.connection_string = connection_string
+        self.connection_string: str = connection_string
 
     def validate_connection(self) -> bool:
         test_query = self.config.extra.get("test_query", "SELECT 1")
         try:
             self._execute(test_query)
             self._is_connected = True
-            logger.info(f"Connection validated for {self.config.name}")
+            logger.info("Connection validated for %s", self.config.name)
             return True
-        except Exception as e:
-            logger.error(f"Connection failed for {self.config.name}: {e}")
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.error("Connection failed for %s: %s", self.config.name, exc)
             return False
 
-    def extract(self, query_or_endpoint: str, params: Optional[Dict] = None) -> Any:
+    def extract(self, query_or_endpoint: str, params: Optional[Dict[str, Any]] = None) -> Any:
         """Execute SQL query and return results as list of dicts."""
         if not self._is_connected:
             self.validate_connection()
@@ -98,7 +99,7 @@ class DatabaseConnector(BaseConnector):
             "WHERE table_schema = 'public'"
         )
 
-    def _execute(self, query: str, params: Optional[Dict] = None) -> Any:
+    def _execute(self, query: str, params: Optional[Dict[str, Any]] = None) -> Any:
         """Override in concrete implementations for actual DB execution."""
         raise NotImplementedError("Subclass must implement _execute")
 
@@ -109,39 +110,50 @@ class APIConnector(BaseConnector):
     Handles pagination, rate limiting, and retry logic.
     """
 
-    def __init__(self, config: ConnectorConfig, api_key: str):
+    def __init__(self, config: ConnectorConfig, api_key: str) -> None:
         super().__init__(config)
-        self.api_key = api_key
-        self.base_url = config.extra.get("base_url", "")
-        self.rate_limit = config.extra.get("rate_limit", 5)
+        self.api_key: str = api_key
+        self.base_url: str = str(config.extra.get("base_url", ""))
+        self.rate_limit: int = int(config.extra.get("rate_limit", 5))
 
     def validate_connection(self) -> bool:
         """Ping the API health endpoint."""
         try:
-            # Subclasses implement actual HTTP call
             result = self._make_request("GET", "/")
             self._is_connected = result is not None
             return self._is_connected
-        except Exception as e:
-            logger.error(f"API connection failed for {self.config.name}: {e}")
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.error("API connection failed for %s: %s", self.config.name, exc)
             return False
 
-    def extract(self, query_or_endpoint: str, params: Optional[Dict] = None) -> Any:
+    def extract(self, query_or_endpoint: str, params: Optional[Dict[str, Any]] = None) -> List[Any]:
         """Fetch data from API endpoint with automatic pagination."""
         all_data: List[Any] = []
-        next_page = query_or_endpoint
+        next_page: Optional[str] = query_or_endpoint
 
         while next_page:
             response = self._make_request("GET", next_page, params)
-            all_data.extend(response.get("data", []))
+            if not isinstance(response, dict):
+                raise ValueError("API response must be a dictionary")
+
+            data = response.get("data", [])
+            if not isinstance(data, list):
+                raise ValueError("API response 'data' field must be a list")
+
+            all_data.extend(data)
             next_page = response.get("next_page_url")
 
         return all_data
 
     def get_schema(self) -> Dict[str, Any]:
         """Return expected schema for the connector's data."""
-        return self.config.extra.get("schema", {})
+        schema = self.config.extra.get("schema", {})
+        if not isinstance(schema, dict):
+            raise ValueError("Configured schema must be a dictionary")
+        return schema
 
-    def _make_request(self, method: str, endpoint: str, params: Optional[Dict] = None) -> Dict:
+    def _make_request(
+        self, method: str, endpoint: str, params: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         """Override in concrete implementations for actual HTTP calls."""
         raise NotImplementedError("Subclass must implement _make_request")

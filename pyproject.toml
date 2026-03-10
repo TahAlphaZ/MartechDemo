@@ -2,7 +2,7 @@
 name = "martech-fabric-pipeline"
 version = "1.0.0"
 description = "MarTech Retail Data Pipeline - Azure Fabric with Medallion Architecture"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "pyyaml>=6.0",
     "pydantic>=2.0",
