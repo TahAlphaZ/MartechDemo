@@ -2,14 +2,16 @@
 Connector Factory - Dynamically instantiates connectors from registry config.
 Subagents: Register new connector classes in CONNECTOR_CLASS_MAP.
 """
-import yaml
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict, Type
+
+import yaml
+
 from src.connectors.base_connector import (
+    APIConnector,
     BaseConnector,
     ConnectorConfig,
     DatabaseConnector,
-    APIConnector,
 )
 
 # ============================================================
@@ -17,7 +19,7 @@ from src.connectors.base_connector import (
 # Subagents: Add your connector class here after implementing it.
 # Format: "registry_key": ConnectorClassName
 # ============================================================
-CONNECTOR_CLASS_MAP: Dict[str, type] = {
+CONNECTOR_CLASS_MAP: Dict[str, Type[BaseConnector]] = {
     # Database connectors
     "postgres": DatabaseConnector,
     "sqlserver": DatabaseConnector,
@@ -33,14 +35,20 @@ CONNECTOR_CLASS_MAP: Dict[str, type] = {
 }
 
 
-def load_registry(config_path: str = None) -> Dict[str, Any]:
+def load_registry(config_path: str | None = None) -> Dict[str, Any]:
     """Load connector registry YAML config."""
     if config_path is None:
         config_path = str(
             Path(__file__).parent.parent.parent / "config" / "connectors" / "connector_registry.yaml"
         )
-    with open(config_path, "r") as f:
-        return yaml.safe_load(f)
+
+    with open(config_path, "r", encoding="utf-8") as file:
+        data = yaml.safe_load(file) or {}
+
+    if not isinstance(data, dict):
+        raise ValueError("Connector registry must be a YAML mapping")
+
+    return data
 
 
 def get_active_connectors(registry: Dict[str, Any]) -> Dict[str, ConnectorConfig]:
@@ -48,7 +56,7 @@ def get_active_connectors(registry: Dict[str, Any]) -> Dict[str, ConnectorConfig
     Parse registry and return only active connector configs.
     This is what the pipeline uses to determine what to ingest.
     """
-    active = {}
+    active: Dict[str, ConnectorConfig] = {}
 
     # Database connector
     db_section = registry.get("databases", {})
@@ -94,7 +102,9 @@ def get_active_connectors(registry: Dict[str, Any]) -> Dict[str, ConnectorConfig
             name=analytics_name,
             connector_type="analytics",
             keyvault_secret=analytics_config.get("keyvault_secret", ""),
-            landing_path=analytics_config.get("landing_path", f"raw/analytics/{analytics_name}"),
+            landing_path=analytics_config.get(
+                "landing_path", f"raw/analytics/{analytics_name}"
+            ),
             extra=analytics_config,
         )
 
@@ -115,7 +125,8 @@ def create_connector(config: ConnectorConfig, secret_value: str) -> BaseConnecto
 
     if issubclass(connector_class, DatabaseConnector):
         return connector_class(config, connection_string=secret_value)
-    elif issubclass(connector_class, APIConnector):
+
+    if issubclass(connector_class, APIConnector):
         return connector_class(config, api_key=secret_value)
-    else:
-        raise ValueError(f"Unknown connector base class for '{config.name}'")
+
+    raise ValueError(f"Unknown connector base class for '{config.name}'")
