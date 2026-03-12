@@ -135,6 +135,30 @@ analytics:
         engage: "/engage"
       landing_path: "raw/analytics/mixpanel"
 
+# --- SALESFORCE CONNECTOR ---
+# Subagents: Enable by adding "salesforce" to active list.
+# Secrets should be stored in Key Vault and referenced by secret names.
+salesforce:
+  active: []
+  connectors:
+    salesforce:
+      type: "rest_api"
+      class_path: "src.connectors.salesforce_connector.SalesforceConnector"
+      description: "Salesforce CRM ingestion via REST APIs (stub)"
+      enabled: true
+      instance_url: "https://your-instance.my.salesforce.com"
+      api_version: "v60.0"
+      auth_type: "oauth_password"
+      client_id_secret_name: "sf-client-id"
+      client_secret_secret_name: "sf-client-secret"
+      username_secret_name: "sf-username"
+      password_secret_name: "sf-password"
+      token_secret_name: "sf-token"
+      landing_path: "raw/salesforce"
+      objects:
+        - "Account"
+        - "Contact"
+
 # --- MEDALLION ZONE CONFIGURATION ---
 medallion:
   raw:

@@ -39,6 +39,41 @@
       "defaultValue": ["shopify"],
       "metadata": { "description": "List of ecommerce connectors: 'shopify', 'magento', 'woocommerce'" }
     },
+    "salesforceInstanceUrl": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": { "description": "Salesforce instance URL (non-secret). Example: https://your-org.my.salesforce.com" }
+    },
+    "salesforceApiVersion": {
+      "type": "string",
+      "defaultValue": "v60.0",
+      "metadata": { "description": "Salesforce REST API version (non-secret). Example: v60.0" }
+    },
+    "salesforceClientIdSecretName": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": { "description": "Key Vault secret name for Salesforce Connected App client id" }
+    },
+    "salesforceClientSecretSecretName": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": { "description": "Key Vault secret name for Salesforce Connected App client secret" }
+    },
+    "salesforceUsernameSecretName": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": { "description": "Key Vault secret name for Salesforce username" }
+    },
+    "salesforcePasswordSecretName": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": { "description": "Key Vault secret name for Salesforce password" }
+    },
+    "salesforceTokenSecretName": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": { "description": "Key Vault secret name for Salesforce security token" }
+    },
     "administratorLogin": {
       "type": "securestring",
       "metadata": { "description": "Admin username for database resources" }
@@ -84,7 +119,12 @@
         },
         "parameters": {
           "keyVaultName": { "value": "[variables('keyVaultName')]" },
-          "location": { "value": "[parameters('location')]" }
+          "location": { "value": "[parameters('location')]" },
+          "salesforceClientIdSecretName": { "value": "[parameters('salesforceClientIdSecretName')]" },
+          "salesforceClientSecretSecretName": { "value": "[parameters('salesforceClientSecretSecretName')]" },
+          "salesforceUsernameSecretName": { "value": "[parameters('salesforceUsernameSecretName')]" },
+          "salesforcePasswordSecretName": { "value": "[parameters('salesforcePasswordSecretName')]" },
+          "salesforceTokenSecretName": { "value": "[parameters('salesforceTokenSecretName')]" }
         }
       }
     },
@@ -108,7 +148,14 @@
           "keyVaultUri": { "value": "[reference('keyVaultDeployment').outputs.keyVaultUri.value]" },
           "dbConnectorType": { "value": "[parameters('dbConnectorType')]" },
           "enableAnalyticsConnectors": { "value": "[parameters('enableAnalyticsConnectors')]" },
-          "enableEcommerceConnectors": { "value": "[parameters('enableEcommerceConnectors')]" }
+          "enableEcommerceConnectors": { "value": "[parameters('enableEcommerceConnectors')]" },
+          "salesforceInstanceUrl": { "value": "[parameters('salesforceInstanceUrl')]" },
+          "salesforceApiVersion": { "value": "[parameters('salesforceApiVersion')]" },
+          "salesforceClientIdSecretName": { "value": "[parameters('salesforceClientIdSecretName')]" },
+          "salesforceClientSecretSecretName": { "value": "[parameters('salesforceClientSecretSecretName')]" },
+          "salesforceUsernameSecretName": { "value": "[parameters('salesforceUsernameSecretName')]" },
+          "salesforcePasswordSecretName": { "value": "[parameters('salesforcePasswordSecretName')]" },
+          "salesforceTokenSecretName": { "value": "[parameters('salesforceTokenSecretName')]" }
         }
       }
     },
@@ -140,6 +187,26 @@
     "keyVaultName": {
       "type": "string",
       "value": "[variables('keyVaultName')]"
+    },
+    "salesforceClientIdSecretUri": {
+      "type": "string",
+      "value": "[reference('keyVaultDeployment').outputs.salesforceClientIdSecretUri.value]"
+    },
+    "salesforceClientSecretSecretUri": {
+      "type": "string",
+      "value": "[reference('keyVaultDeployment').outputs.salesforceClientSecretSecretUri.value]"
+    },
+    "salesforceUsernameSecretUri": {
+      "type": "string",
+      "value": "[reference('keyVaultDeployment').outputs.salesforceUsernameSecretUri.value]"
+    },
+    "salesforcePasswordSecretUri": {
+      "type": "string",
+      "value": "[reference('keyVaultDeployment').outputs.salesforcePasswordSecretUri.value]"
+    },
+    "salesforceTokenSecretUri": {
+      "type": "string",
+      "value": "[reference('keyVaultDeployment').outputs.salesforceTokenSecretUri.value]"
     }
   }
 }

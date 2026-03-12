@@ -4,10 +4,21 @@
   "parameters": {
     "environment": { "value": "prod" },
     "projectName": { "value": "martech" },
+    "location": { "value": "eastus" },
+
     "dbConnectorType": { "value": "postgres" },
-    "enableAnalyticsConnectors": { "value": ["google_analytics", "adobe_analytics"] },
+    "enableAnalyticsConnectors": { "value": [] },
     "enableEcommerceConnectors": { "value": ["shopify"] },
-    "administratorLogin": { "reference": { "keyVault": { "id": "/subscriptions/{sub-id}/resourceGroups/{rg}/providers/Microsoft.KeyVault/vaults/{kv}" }, "secretName": "admin-login" } },
-    "administratorPassword": { "reference": { "keyVault": { "id": "/subscriptions/{sub-id}/resourceGroups/{rg}/providers/Microsoft.KeyVault/vaults/{kv}" }, "secretName": "admin-password" } }
+
+    "salesforceInstanceUrl": { "value": "https://your-prod-instance.my.salesforce.com" },
+    "salesforceApiVersion": { "value": "v60.0" },
+    "salesforceClientIdSecretName": { "value": "sf-prod-client-id" },
+    "salesforceClientSecretSecretName": { "value": "sf-prod-client-secret" },
+    "salesforceUsernameSecretName": { "value": "sf-prod-username" },
+    "salesforcePasswordSecretName": { "value": "sf-prod-password" },
+    "salesforceTokenSecretName": { "value": "sf-prod-token" },
+
+    "administratorLogin": { "value": "changeme" },
+    "administratorPassword": { "value": "changeme" }
   }
 }

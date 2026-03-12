@@ -11,6 +11,7 @@ from src.connectors.base_connector import (
     DatabaseConnector,
     APIConnector,
 )
+from src.connectors.salesforce_connector import SalesforceConnector
 
 # ============================================================
 # CONNECTOR CLASS MAP
@@ -30,6 +31,8 @@ CONNECTOR_CLASS_MAP: Dict[str, type] = {
     "google_analytics": APIConnector,
     "adobe_analytics": APIConnector,
     "mixpanel": APIConnector,
+    # CRM connectors
+    "salesforce": SalesforceConnector,
 }
 
 
@@ -98,6 +101,18 @@ def get_active_connectors(registry: Dict[str, Any]) -> Dict[str, ConnectorConfig
             extra=analytics_config,
         )
 
+    # Salesforce connector
+    sf_section = registry.get("salesforce", {})
+    for sf_name in sf_section.get("active", []):
+        sf_config = sf_section.get("connectors", {}).get(sf_name, {})
+        active[f"crm_{sf_name}"] = ConnectorConfig(
+            name=sf_name,
+            connector_type="api",
+            keyvault_secret=sf_config.get("keyvault_secret", ""),
+            landing_path=sf_config.get("landing_path", f"raw/{sf_name}"),
+            extra=sf_config,
+        )
+
     return active
 
 
@@ -117,5 +132,9 @@ def create_connector(config: ConnectorConfig, secret_value: str) -> BaseConnecto
         return connector_class(config, connection_string=secret_value)
     elif issubclass(connector_class, APIConnector):
         return connector_class(config, api_key=secret_value)
+    elif issubclass(connector_class, SalesforceConnector):
+        # Salesforce auth typically uses multiple secrets; this connector is stubbed and
+        # does not require secret_value for instantiation.
+        return connector_class(config)
     else:
         raise ValueError(f"Unknown connector base class for '{config.name}'")
