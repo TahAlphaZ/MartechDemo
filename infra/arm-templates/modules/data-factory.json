@@ -14,7 +14,14 @@
       "allowedValues": ["postgres", "sqlserver", "mysql"]
     },
     "enableAnalyticsConnectors": { "type": "array" },
-    "enableEcommerceConnectors": { "type": "array" }
+    "enableEcommerceConnectors": { "type": "array" },
+    "salesforceInstanceUrl": { "type": "string", "defaultValue": "" },
+    "salesforceApiVersion": { "type": "string", "defaultValue": "v60.0" },
+    "salesforceClientIdSecretName": { "type": "string", "defaultValue": "" },
+    "salesforceClientSecretSecretName": { "type": "string", "defaultValue": "" },
+    "salesforceUsernameSecretName": { "type": "string", "defaultValue": "" },
+    "salesforcePasswordSecretName": { "type": "string", "defaultValue": "" },
+    "salesforceTokenSecretName": { "type": "string", "defaultValue": "" }
   },
   "variables": {
     "dbLinkedServiceType": {
@@ -42,6 +49,14 @@
           "environment": {
             "type": "String",
             "value": "dev"
+          },
+          "salesforceInstanceUrl": {
+            "type": "String",
+            "value": "[parameters('salesforceInstanceUrl')]"
+          },
+          "salesforceApiVersion": {
+            "type": "String",
+            "value": "[parameters('salesforceApiVersion')]"
           }
         }
       }
@@ -50,7 +65,7 @@
       "type": "Microsoft.DataFactory/factories/linkedservices",
       "apiVersion": "2018-06-01",
       "name": "[concat(parameters('dataFactoryName'), '/ls_keyvault')]",
-      "dependsOn": ["[parameters('dataFactoryName')]"],
+      "dependsOn": ["[parameters('dataFactoryName')]"] ,
       "properties": {
         "type": "AzureKeyVault",
         "typeProperties": {
@@ -62,7 +77,7 @@
       "type": "Microsoft.DataFactory/factories/linkedservices",
       "apiVersion": "2018-06-01",
       "name": "[concat(parameters('dataFactoryName'), '/ls_adls_lakehouse')]",
-      "dependsOn": ["[parameters('dataFactoryName')]"],
+      "dependsOn": ["[parameters('dataFactoryName')]"] ,
       "properties": {
         "type": "AzureBlobFS",
         "typeProperties": {
@@ -110,6 +125,64 @@
           "authenticationType": "Anonymous"
         },
         "annotations": ["extensible", "api-connector"]
+      }
+    },
+    {
+      "comments": "Salesforce linked service (optional): uses Key Vault secret references for credentials. Deployed when instance URL is provided.",
+      "condition": "[not(equals(parameters('salesforceInstanceUrl'), ''))]",
+      "type": "Microsoft.DataFactory/factories/linkedservices",
+      "apiVersion": "2018-06-01",
+      "name": "[concat(parameters('dataFactoryName'), '/ls_salesforce')]",
+      "dependsOn": [
+        "[parameters('dataFactoryName')]",
+        "[concat(parameters('dataFactoryName'), '/ls_keyvault')]"
+      ],
+      "properties": {
+        "type": "Salesforce",
+        "typeProperties": {
+          "environmentUrl": "[parameters('salesforceInstanceUrl')]",
+          "username": {
+            "type": "AzureKeyVaultSecret",
+            "store": {
+              "referenceName": "ls_keyvault",
+              "type": "LinkedServiceReference"
+            },
+            "secretName": "[parameters('salesforceUsernameSecretName')]"
+          },
+          "password": {
+            "type": "AzureKeyVaultSecret",
+            "store": {
+              "referenceName": "ls_keyvault",
+              "type": "LinkedServiceReference"
+            },
+            "secretName": "[parameters('salesforcePasswordSecretName')]"
+          },
+          "securityToken": {
+            "type": "AzureKeyVaultSecret",
+            "store": {
+              "referenceName": "ls_keyvault",
+              "type": "LinkedServiceReference"
+            },
+            "secretName": "[parameters('salesforceTokenSecretName')]"
+          },
+          "clientId": {
+            "type": "AzureKeyVaultSecret",
+            "store": {
+              "referenceName": "ls_keyvault",
+              "type": "LinkedServiceReference"
+            },
+            "secretName": "[parameters('salesforceClientIdSecretName')]"
+          },
+          "clientSecret": {
+            "type": "AzureKeyVaultSecret",
+            "store": {
+              "referenceName": "ls_keyvault",
+              "type": "LinkedServiceReference"
+            },
+            "secretName": "[parameters('salesforceClientSecretSecretName')]"
+          }
+        },
+        "annotations": ["extensible", "crm-connector", "salesforce"]
       }
     }
   ],

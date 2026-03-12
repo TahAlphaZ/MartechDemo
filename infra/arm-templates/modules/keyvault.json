@@ -3,7 +3,12 @@
   "contentVersion": "1.0.0.0",
   "parameters": {
     "keyVaultName": { "type": "string" },
-    "location": { "type": "string" }
+    "location": { "type": "string" },
+    "salesforceClientIdSecretName": { "type": "string", "defaultValue": "" },
+    "salesforceClientSecretSecretName": { "type": "string", "defaultValue": "" },
+    "salesforceUsernameSecretName": { "type": "string", "defaultValue": "" },
+    "salesforcePasswordSecretName": { "type": "string", "defaultValue": "" },
+    "salesforceTokenSecretName": { "type": "string", "defaultValue": "" }
   },
   "resources": [
     {
@@ -33,6 +38,26 @@
     "keyVaultId": {
       "type": "string",
       "value": "[resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName'))]"
+    },
+    "salesforceClientIdSecretUri": {
+      "type": "string",
+      "value": "[if(equals(parameters('salesforceClientIdSecretName'), ''), '', concat(reference(parameters('keyVaultName')).vaultUri, 'secrets/', parameters('salesforceClientIdSecretName')))]"
+    },
+    "salesforceClientSecretSecretUri": {
+      "type": "string",
+      "value": "[if(equals(parameters('salesforceClientSecretSecretName'), ''), '', concat(reference(parameters('keyVaultName')).vaultUri, 'secrets/', parameters('salesforceClientSecretSecretName')))]"
+    },
+    "salesforceUsernameSecretUri": {
+      "type": "string",
+      "value": "[if(equals(parameters('salesforceUsernameSecretName'), ''), '', concat(reference(parameters('keyVaultName')).vaultUri, 'secrets/', parameters('salesforceUsernameSecretName')))]"
+    },
+    "salesforcePasswordSecretUri": {
+      "type": "string",
+      "value": "[if(equals(parameters('salesforcePasswordSecretName'), ''), '', concat(reference(parameters('keyVaultName')).vaultUri, 'secrets/', parameters('salesforcePasswordSecretName')))]"
+    },
+    "salesforceTokenSecretUri": {
+      "type": "string",
+      "value": "[if(equals(parameters('salesforceTokenSecretName'), ''), '', concat(reference(parameters('keyVaultName')).vaultUri, 'secrets/', parameters('salesforceTokenSecretName')))]"
     }
   }
 }

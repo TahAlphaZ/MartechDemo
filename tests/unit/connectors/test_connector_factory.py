@@ -15,6 +15,7 @@ from src.connectors.connector_factory import (
     CONNECTOR_CLASS_MAP,
 )
 from src.connectors.base_connector import ConnectorConfig, DatabaseConnector, APIConnector
+from src.connectors.salesforce_connector import SalesforceConnector
 
 
 class TestRegistryLoading:
@@ -27,7 +28,7 @@ class TestRegistryLoading:
 
     def test_registry_has_required_sections(self):
         registry = load_registry()
-        required_sections = ["databases", "file_storage", "ecommerce", "analytics", "medallion"]
+        required_sections = ["databases", "file_storage", "ecommerce", "analytics", "medallion", "salesforce"]
         for section in required_sections:
             assert section in registry, f"Missing required section: {section}"
 
@@ -43,6 +44,12 @@ class TestRegistryLoading:
         for name, config in registry["ecommerce"]["connectors"].items():
             assert "endpoints" in config, f"Ecommerce '{name}' missing endpoints"
             assert "orders" in config["endpoints"], f"Ecommerce '{name}' missing orders endpoint"
+
+    def test_salesforce_registry_has_salesforce_connector_entry(self):
+        registry = load_registry()
+        assert "salesforce" in registry
+        assert "connectors" in registry["salesforce"]
+        assert "salesforce" in registry["salesforce"]["connectors"]
 
 
 class TestActiveConnectorResolution:
@@ -87,6 +94,12 @@ class TestActiveConnectorResolution:
             assert config.name != ""
             assert config.connector_type in ("database", "file", "api", "analytics")
 
+    def test_enabling_salesforce(self):
+        registry = load_registry()
+        registry["salesforce"]["active"] = ["salesforce"]
+        active = get_active_connectors(registry)
+        assert "crm_salesforce" in active
+
 
 class TestConnectorFactory:
     """TDD: Factory creates correct connector types."""
@@ -112,6 +125,20 @@ class TestConnectorFactory:
         connector = create_connector(config, "test-api-key")
         assert isinstance(connector, APIConnector)
 
+    def test_create_salesforce_connector(self):
+        config = ConnectorConfig(
+            name="salesforce",
+            connector_type="api",
+            keyvault_secret="",
+            landing_path="raw/salesforce",
+            extra={
+                "instance_url": "https://example.my.salesforce.com",
+                "api_version": "v60.0",
+            },
+        )
+        connector = create_connector(config, "")
+        assert isinstance(connector, SalesforceConnector)
+
     def test_unknown_connector_raises(self):
         config = ConnectorConfig(
             name="unknown_platform",
@@ -125,6 +152,6 @@ class TestConnectorFactory:
     def test_all_registered_connectors_have_classes(self):
         """Ensure every entry in CONNECTOR_CLASS_MAP points to a valid class."""
         for name, cls in CONNECTOR_CLASS_MAP.items():
-            assert issubclass(cls, (DatabaseConnector, APIConnector)), (
-                f"Connector '{name}' class must inherit DatabaseConnector or APIConnector"
+            assert issubclass(cls, (DatabaseConnector, APIConnector, SalesforceConnector)), (
+                f"Connector '{name}' class must inherit DatabaseConnector, APIConnector, or SalesforceConnector"
             )
