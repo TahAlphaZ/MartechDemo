@@ -1,0 +1,6 @@
+[
+  { "ParameterKey": "Environment", "ParameterValue": "prod" },
+  { "ParameterKey": "ProjectName", "ParameterValue": "martech" },
+  { "ParameterKey": "DBUsername", "ParameterValue": "prod-admin-user" },
+  { "ParameterKey": "DBPassword", "ParameterValue": "StrongProdPlaceholderPassword123!" }
+]

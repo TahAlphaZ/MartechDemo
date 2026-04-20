@@ -1,0 +1,58 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Aurora Serverless v2 PostgreSQL module",
+  "Parameters": {
+    "Environment": { "Type": "String" },
+    "ProjectName": { "Type": "String" },
+    "DBUsername": { "Type": "String" },
+    "DBPassword": { "Type": "String", "NoEcho": true }
+  },
+  "Mappings": {
+    "EnvToInstanceConfig": {
+      "dev": { "MinCapacity": 0.5, "MaxCapacity": 1 },
+      "staging": { "MinCapacity": 1, "MaxCapacity": 2 },
+      "prod": { "MinCapacity": 2, "MaxCapacity": 8 }
+    }
+  },
+  "Resources": {
+    "DBSubnetGroup": {
+      "Type": "AWS::RDS::DBSubnetGroup",
+      "Properties": {
+        "DBSubnetGroupDescription": "Default subnet group",
+        "SubnetIds": []
+      }
+    },
+    "AuroraCluster": {
+      "Type": "AWS::RDS::DBCluster",
+      "Properties": {
+        "Engine": "aurora-postgresql",
+        "EngineMode": "provisioned",
+        "ServerlessV2ScalingConfiguration": {
+          "MinCapacity": {
+            "Fn::FindInMap": ["EnvToInstanceConfig", { "Ref": "Environment" }, "MinCapacity"]
+          },
+          "MaxCapacity": {
+            "Fn::FindInMap": ["EnvToInstanceConfig", { "Ref": "Environment" }, "MaxCapacity"]
+          }
+        },
+        "MasterUsername": { "Ref": "DBUsername" },
+        "MasterUserPassword": { "Ref": "DBPassword" },
+        "StorageEncrypted": true,
+        "DBSubnetGroupName": { "Ref": "DBSubnetGroup" }
+      }
+    },
+    "AuroraInstance": {
+      "Type": "AWS::RDS::DBInstance",
+      "Properties": {
+        "DBClusterIdentifier": { "Ref": "AuroraCluster" },
+        "DBInstanceClass": "db.serverless",
+        "Engine": "aurora-postgresql"
+      }
+    }
+  },
+  "Outputs": {
+    "ClusterEndpoint": {
+      "Value": { "Fn::GetAtt": ["AuroraCluster", "Endpoint.Address"] }
+    }
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "S3 storage module for medallion architecture",
+  "Parameters": {
+    "Environment": { "Type": "String" },
+    "ProjectName": { "Type": "String" }
+  },
+  "Resources": {
+    "DataLakeBucket": {
+      "Type": "AWS::S3::Bucket",
+      "Properties": {
+        "BucketName": {
+          "Fn::Sub": "${ProjectName}-${Environment}-datalake"
+        },
+        "VersioningConfiguration": {
+          "Status": "Enabled"
+        },
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": true,
+          "BlockPublicPolicy": true,
+          "IgnorePublicAcls": true,
+          "RestrictPublicBuckets": true
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "BucketName": {
+      "Value": { "Ref": "DataLakeBucket" }
+    },
+    "RawPrefix": {
+      "Value": "raw/"
+    },
+    "SilverPrefix": {
+      "Value": "silver/"
+    },
+    "GoldPrefix": {
+      "Value": "gold/"
+    }
+  }
+}

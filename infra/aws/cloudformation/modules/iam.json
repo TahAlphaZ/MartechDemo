@@ -1,0 +1,53 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "IAM module for data pipeline access",
+  "Parameters": {
+    "ProjectName": { "Type": "String" }
+  },
+  "Resources": {
+    "DataPipelineRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": { "Service": "ec2.amazonaws.com" },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        }
+      }
+    },
+    "S3AccessPolicy": {
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyName": "S3AccessPolicy",
+        "Roles": [{ "Ref": "DataPipelineRole" }],
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Action": "s3:*",
+              "Resource": [
+                {
+                  "Fn::Sub": "arn:aws:s3:::${ProjectName}-*"
+                },
+                {
+                  "Fn::Sub": "arn:aws:s3:::${ProjectName}-*/*"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "PipelineRoleArn": {
+      "Value": { "Fn::GetAtt": ["DataPipelineRole", "Arn"] }
+    }
+  }
+}
