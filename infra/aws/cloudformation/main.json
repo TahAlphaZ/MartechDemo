@@ -1,0 +1,80 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Root CloudFormation template for Martech AWS infrastructure",
+  "Parameters": {
+    "Environment": {
+      "Type": "String",
+      "Default": "dev",
+      "AllowedValues": ["dev", "staging", "prod"]
+    },
+    "ProjectName": {
+      "Type": "String",
+      "Default": "martech"
+    },
+    "DBUsername": {
+      "Type": "String",
+      "NoEcho": true
+    },
+    "DBPassword": {
+      "Type": "String",
+      "NoEcho": true
+    }
+  },
+  "Mappings": {
+    "EnvToInstanceConfig": {
+      "dev": { "MinCapacity": 0.5, "MaxCapacity": 1 },
+      "staging": { "MinCapacity": 1, "MaxCapacity": 2 },
+      "prod": { "MinCapacity": 2, "MaxCapacity": 8 }
+    }
+  },
+  "Resources": {
+    "StorageStack": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "modules/storage.json",
+        "Parameters": {
+          "Environment": { "Ref": "Environment" },
+          "ProjectName": { "Ref": "ProjectName" }
+        }
+      }
+    },
+    "DatabaseStack": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "modules/database.json",
+        "Parameters": {
+          "Environment": { "Ref": "Environment" },
+          "ProjectName": { "Ref": "ProjectName" },
+          "DBUsername": { "Ref": "DBUsername" },
+          "DBPassword": { "Ref": "DBPassword" }
+        }
+      }
+    },
+    "IamStack": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "modules/iam.json",
+        "Parameters": {
+          "ProjectName": { "Ref": "ProjectName" }
+        }
+      }
+    },
+    "MonitoringStack": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "modules/monitoring.json",
+        "Parameters": {
+          "ProjectName": { "Ref": "ProjectName" }
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "S3BucketName": {
+      "Value": { "Fn::GetAtt": ["StorageStack", "Outputs.BucketName"] }
+    },
+    "AuroraClusterEndpoint": {
+      "Value": { "Fn::GetAtt": ["DatabaseStack", "Outputs.ClusterEndpoint"] }
+    }
+  }
+}

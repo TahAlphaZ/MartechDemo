@@ -1,0 +1,6 @@
+[
+  { "ParameterKey": "Environment", "ParameterValue": "dev" },
+  { "ParameterKey": "ProjectName", "ParameterValue": "martech" },
+  { "ParameterKey": "DBUsername", "ParameterValue": "placeholder-dev-user" },
+  { "ParameterKey": "DBPassword", "ParameterValue": "placeholder-dev-password" }
+]

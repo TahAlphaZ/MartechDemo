@@ -1,0 +1,36 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Monitoring module with CloudWatch resources",
+  "Parameters": {
+    "ProjectName": { "Type": "String" }
+  },
+  "Resources": {
+    "DataLakeLogGroup": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": {
+          "Fn::Sub": "/aws/${ProjectName}/datalake"
+        },
+        "RetentionInDays": 30
+      }
+    },
+    "RDSCpuAlarm": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmDescription": "Alarm when RDS CPU exceeds 80%",
+        "Namespace": "AWS/RDS",
+        "MetricName": "CPUUtilization",
+        "Statistic": "Average",
+        "Period": 300,
+        "EvaluationPeriods": 2,
+        "Threshold": 80,
+        "ComparisonOperator": "GreaterThanThreshold"
+      }
+    }
+  },
+  "Outputs": {
+    "LogGroupName": {
+      "Value": { "Ref": "DataLakeLogGroup" }
+    }
+  }
+}
