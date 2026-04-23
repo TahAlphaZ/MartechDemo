@@ -7,7 +7,10 @@
   "parameters": {
     "storageAccountName": { "type": "string" },
     "location": { "type": "string" },
-    "environment": { "type": "string" }
+    "environment": { "type": "string" },
+    "keyVaultKeyUri": { "type": "string" },
+    "keyVaultResourceId": { "type": "string" },
+    "keyVaultName": { "type": "string" }
   },
   "variables": {
     "skuMap": {
@@ -22,6 +25,9 @@
       "apiVersion": "2023-01-01",
       "name": "[parameters('storageAccountName')]",
       "location": "[parameters('location')]",
+      "identity": {
+        "type": "SystemAssigned"
+      },
       "kind": "StorageV2",
       "sku": {
         "name": "[variables('skuMap')[parameters('environment')]]"
@@ -31,6 +37,18 @@
         "accessTier": "Hot",
         "supportsHttpsTrafficOnly": true,
         "minimumTlsVersion": "TLS1_2",
+        "encryption": {
+          "keySource": "Microsoft.Keyvault",
+          "keyvaultproperties": {
+            "keyname": "cmk-storage-key",
+            "keyvaulturi": "[reference(parameters('keyVaultResourceId'), '2019-09-01').properties.vaultUri]",
+            "keyversion": "[last(split(parameters('keyVaultKeyUri'), '/'))]"
+          },
+          "services": {
+            "blob": { "enabled": true },
+            "file": { "enabled": true }
+          }
+        },
         "networkAcls": {
           "defaultAction": "Deny",
           "bypass": "AzureServices"
@@ -38,22 +56,52 @@
       }
     },
     {
+      "type": "Microsoft.KeyVault/vaults/accessPolicies",
+      "apiVersion": "2022-07-01",
+      "name": "[concat(parameters('keyVaultName'), '/add')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]",
+        "[parameters('keyVaultResourceId')]"
+      ],
+      "properties": {
+        "accessPolicies": [
+          {
+            "tenantId": "[subscription().tenantId]",
+            "objectId": "[reference(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2022-09-01', 'Full').identity.principalId]",
+            "permissions": {
+              "keys": [
+                "get",
+                "wrapKey",
+                "unwrapKey"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
       "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
       "apiVersion": "2023-01-01",
       "name": "[concat(parameters('storageAccountName'), '/default/raw')]",
-      "dependsOn": ["[parameters('storageAccountName')]"]
+      "dependsOn": [
+        "[parameters('storageAccountName')]"
+      ]
     },
     {
       "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
       "apiVersion": "2023-01-01",
       "name": "[concat(parameters('storageAccountName'), '/default/silver')]",
-      "dependsOn": ["[parameters('storageAccountName')]"]
+      "dependsOn": [
+        "[parameters('storageAccountName')]"
+      ]
     },
     {
       "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
       "apiVersion": "2023-01-01",
       "name": "[concat(parameters('storageAccountName'), '/default/gold')]",
-      "dependsOn": ["[parameters('storageAccountName')]"]
+      "dependsOn": [
+        "[parameters('storageAccountName')]"
+      ]
     }
   ],
   "outputs": {

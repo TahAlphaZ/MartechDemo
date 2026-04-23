@@ -23,6 +23,21 @@
           "bypass": "AzureServices"
         }
       }
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/keys",
+      "apiVersion": "2022-07-01",
+      "name": "[concat(parameters('keyVaultName'), '/cmk-storage-key')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName'))]"
+      ],
+      "properties": {
+        "kty": "RSA",
+        "keySize": 2048,
+        "attributes": {
+          "enabled": true
+        }
+      }
     }
   ],
   "outputs": {
@@ -33,6 +48,10 @@
     "keyVaultId": {
       "type": "string",
       "value": "[resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName'))]"
+    },
+    "storageCmkKeyUri": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.KeyVault/vaults/keys', parameters('keyVaultName'), 'cmk-storage-key')).keyUriWithVersion]"
     }
   }
 }

@@ -60,22 +60,6 @@
     {
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2021-04-01",
-      "name": "storageDeployment",
-      "properties": {
-        "mode": "Incremental",
-        "templateLink": {
-          "relativePath": "modules/storage.json"
-        },
-        "parameters": {
-          "storageAccountName": { "value": "[variables('storageAccountName')]" },
-          "location": { "value": "[parameters('location')]" },
-          "environment": { "value": "[parameters('environment')]" }
-        }
-      }
-    },
-    {
-      "type": "Microsoft.Resources/deployments",
-      "apiVersion": "2021-04-01",
       "name": "keyVaultDeployment",
       "properties": {
         "mode": "Incremental",
@@ -85,6 +69,28 @@
         "parameters": {
           "keyVaultName": { "value": "[variables('keyVaultName')]" },
           "location": { "value": "[parameters('location')]" }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2021-04-01",
+      "name": "storageDeployment",
+      "dependsOn": [
+        "keyVaultDeployment"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "relativePath": "modules/storage.json"
+        },
+        "parameters": {
+          "storageAccountName": { "value": "[variables('storageAccountName')]" },
+          "location": { "value": "[parameters('location')]" },
+          "environment": { "value": "[parameters('environment')]" },
+          "keyVaultKeyUri": { "value": "[reference('keyVaultDeployment').outputs.storageCmkKeyUri.value]" },
+          "keyVaultResourceId": { "value": "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]" },
+          "keyVaultName": { "value": "[variables('keyVaultName')]" }
         }
       }
     },
