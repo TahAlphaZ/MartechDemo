@@ -6,15 +6,18 @@ Write tests FIRST, then implement. Tests validate:
 - Factory instantiation for all connector types
 - DB swap (postgres ↔ sqlserver) works transparently
 """
+
 import pytest
-from unittest.mock import patch, MagicMock
-from src.connectors.connector_factory import (
-    load_registry,
-    get_active_connectors,
-    create_connector,
-    CONNECTOR_CLASS_MAP,
+
+from src.connectors.adobe_analytics_connector import AdobeAnalyticsConnector
+from src.connectors.base_connector import APIConnector, ConnectorConfig, DatabaseConnector, FileConnector
+from src.connectors.connector_factory import CONNECTOR_CLASS_MAP, create_connector, get_active_connectors, load_registry
+from src.connectors.google_analytics_connector import GoogleAnalyticsConnector
+
+SERVICE_ACCOUNT_SECRET = (
+    '{"type":"service_account","client_email":"test@example.com",'
+    '"token_uri":"https://oauth2.googleapis.com/token"}'
 )
-from src.connectors.base_connector import ConnectorConfig, DatabaseConnector, APIConnector
 
 
 class TestRegistryLoading:
@@ -87,6 +90,13 @@ class TestActiveConnectorResolution:
             assert config.name != ""
             assert config.connector_type in ("database", "file", "api", "analytics")
 
+    def test_unknown_active_connector_raises(self):
+        registry = load_registry()
+        registry["file_storage"]["active"] = "does_not_exist"
+
+        with pytest.raises(ValueError, match="Active connector 'does_not_exist'"):
+            get_active_connectors(registry)
+
 
 class TestConnectorFactory:
     """TDD: Factory creates correct connector types."""
@@ -112,6 +122,51 @@ class TestConnectorFactory:
         connector = create_connector(config, "test-api-key")
         assert isinstance(connector, APIConnector)
 
+    def test_create_google_analytics_connector(self):
+        config = ConnectorConfig(
+            name="google_analytics",
+            connector_type="analytics",
+            keyvault_secret="test-secret",
+            landing_path="raw/analytics/google_analytics",
+            extra={
+                "base_url": "https://analyticsdata.googleapis.com/v1beta",
+                "endpoints": {"reports": "/properties/{property_id}:runReport"},
+                "property_id": "123456789",
+            },
+        )
+        connector = create_connector(
+            config,
+            SERVICE_ACCOUNT_SECRET,
+        )
+        assert isinstance(connector, GoogleAnalyticsConnector)
+
+    def test_create_adobe_analytics_connector(self):
+        config = ConnectorConfig(
+            name="adobe_analytics",
+            connector_type="analytics",
+            keyvault_secret="test-secret",
+            landing_path="raw/analytics/adobe_analytics",
+            extra={
+                "base_url": "https://analytics.adobe.io/api/{company_id}",
+                "endpoints": {"reports": "/reports", "segments": "/segments"},
+            },
+        )
+        connector = create_connector(
+            config,
+            '{"client_id":"test-client-id","company_id":"exampleco","access_token":"test-token"}',
+        )
+        assert isinstance(connector, AdobeAnalyticsConnector)
+
+    def test_create_file_connector(self):
+        config = ConnectorConfig(
+            name="sftp",
+            connector_type="file",
+            keyvault_secret="test-secret",
+            landing_path="raw/files/sftp",
+        )
+        connector = create_connector(config, "username=test;password=secret")
+        assert isinstance(connector, FileConnector)
+
     def test_unknown_connector_raises(self):
         config = ConnectorConfig(
             name="unknown_platform",
@@ -125,6 +180,6 @@ class TestConnectorFactory:
     def test_all_registered_connectors_have_classes(self):
         """Ensure every entry in CONNECTOR_CLASS_MAP points to a valid class."""
         for name, cls in CONNECTOR_CLASS_MAP.items():
-            assert issubclass(cls, (DatabaseConnector, APIConnector)), (
-                f"Connector '{name}' class must inherit DatabaseConnector or APIConnector"
+            assert issubclass(cls, (DatabaseConnector, APIConnector, FileConnector)), (  # noqa: UP038
+                f"Connector '{name}' class must inherit DatabaseConnector, APIConnector, or FileConnector"
             )
