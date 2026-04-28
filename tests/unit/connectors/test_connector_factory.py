@@ -9,9 +9,10 @@ Write tests FIRST, then implement. Tests validate:
 
 import pytest
 
+from src.connectors.adobe_analytics_connector import AdobeAnalyticsConnector
 from src.connectors.base_connector import APIConnector, ConnectorConfig, DatabaseConnector, FileConnector
-from src.connectors.google_analytics_connector import GoogleAnalyticsConnector
 from src.connectors.connector_factory import CONNECTOR_CLASS_MAP, create_connector, get_active_connectors, load_registry
+from src.connectors.google_analytics_connector import GoogleAnalyticsConnector
 
 SERVICE_ACCOUNT_SECRET = (
     '{"type":"service_account","client_email":"test@example.com",'
@@ -138,6 +139,23 @@ class TestConnectorFactory:
             SERVICE_ACCOUNT_SECRET,
         )
         assert isinstance(connector, GoogleAnalyticsConnector)
+
+    def test_create_adobe_analytics_connector(self):
+        config = ConnectorConfig(
+            name="adobe_analytics",
+            connector_type="analytics",
+            keyvault_secret="test-secret",
+            landing_path="raw/analytics/adobe_analytics",
+            extra={
+                "base_url": "https://analytics.adobe.io/api/{company_id}",
+                "endpoints": {"reports": "/reports", "segments": "/segments"},
+            },
+        )
+        connector = create_connector(
+            config,
+            '{"client_id":"test-client-id","company_id":"exampleco","access_token":"test-token"}',
+        )
+        assert isinstance(connector, AdobeAnalyticsConnector)
 
     def test_create_file_connector(self):
         config = ConnectorConfig(

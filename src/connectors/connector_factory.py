@@ -9,6 +9,7 @@ from typing import Any
 
 import yaml
 
+from src.connectors.adobe_analytics_connector import AdobeAnalyticsConnector
 from src.connectors.base_connector import (
     APIConnector,
     BaseConnector,
@@ -37,7 +38,7 @@ CONNECTOR_CLASS_MAP: dict[str, type[BaseConnector]] = {
     "woocommerce": APIConnector,
     # Analytics connectors (override with specific classes when ready)
     "google_analytics": GoogleAnalyticsConnector,
-    "adobe_analytics": APIConnector,
+    "adobe_analytics": AdobeAnalyticsConnector,
     "mixpanel": APIConnector,
 }
 
