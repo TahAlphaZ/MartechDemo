@@ -10,7 +10,13 @@ Write tests FIRST, then implement. Tests validate:
 import pytest
 
 from src.connectors.base_connector import APIConnector, ConnectorConfig, DatabaseConnector, FileConnector
+from src.connectors.google_analytics_connector import GoogleAnalyticsConnector
 from src.connectors.connector_factory import CONNECTOR_CLASS_MAP, create_connector, get_active_connectors, load_registry
+
+SERVICE_ACCOUNT_SECRET = (
+    '{"type":"service_account","client_email":"test@example.com",'
+    '"token_uri":"https://oauth2.googleapis.com/token"}'
+)
 
 
 class TestRegistryLoading:
@@ -114,6 +120,24 @@ class TestConnectorFactory:
         )
         connector = create_connector(config, "test-api-key")
         assert isinstance(connector, APIConnector)
+
+    def test_create_google_analytics_connector(self):
+        config = ConnectorConfig(
+            name="google_analytics",
+            connector_type="analytics",
+            keyvault_secret="test-secret",
+            landing_path="raw/analytics/google_analytics",
+            extra={
+                "base_url": "https://analyticsdata.googleapis.com/v1beta",
+                "endpoints": {"reports": "/properties/{property_id}:runReport"},
+                "property_id": "123456789",
+            },
+        )
+        connector = create_connector(
+            config,
+            SERVICE_ACCOUNT_SECRET,
+        )
+        assert isinstance(connector, GoogleAnalyticsConnector)
 
     def test_create_file_connector(self):
         config = ConnectorConfig(
