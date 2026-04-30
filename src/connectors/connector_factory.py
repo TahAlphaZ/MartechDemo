@@ -2,14 +2,18 @@
 Connector Factory - Dynamically instantiates connectors from registry config.
 Subagents: Register new connector classes in CONNECTOR_CLASS_MAP.
 """
-import yaml
+from __future__ import annotations
+
+import ast
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict, List, Tuple
+
 from src.connectors.base_connector import (
+    APIConnector,
     BaseConnector,
     ConnectorConfig,
     DatabaseConnector,
-    APIConnector,
+    FileConnector,
 )
 
 # ============================================================
@@ -22,6 +26,9 @@ CONNECTOR_CLASS_MAP: Dict[str, type] = {
     "postgres": DatabaseConnector,
     "sqlserver": DatabaseConnector,
     "mysql": DatabaseConnector,
+    # File storage connectors
+    "sftp": FileConnector,
+    "azure_blob": FileConnector,
     # Ecommerce connectors (override with specific classes when ready)
     "shopify": APIConnector,
     "magento": APIConnector,
@@ -33,14 +40,110 @@ CONNECTOR_CLASS_MAP: Dict[str, type] = {
 }
 
 
+def _strip_inline_comment(line: str) -> str:
+    in_single = False
+    in_double = False
+    result: List[str] = []
+
+    for char in line:
+        if char == "'" and not in_double:
+            in_single = not in_single
+        elif char == '"' and not in_single:
+            in_double = not in_double
+        elif char == "#" and not in_single and not in_double:
+            break
+        result.append(char)
+
+    return "".join(result).rstrip()
+
+
+def _parse_scalar(value: str) -> Any:
+    value = value.strip()
+    if value == "":
+        return ""
+    if value in {"[]", "{}"}:
+        return ast.literal_eval(value)
+    if value.startswith(("'", '"')) and value.endswith(("'", '"')):
+        return ast.literal_eval(value)
+    if value.lstrip("-").isdigit():
+        return int(value)
+    if value.lower() == "true":
+        return True
+    if value.lower() == "false":
+        return False
+    if value.startswith("[") and value.endswith("]"):
+        inner = value[1:-1].strip()
+        if not inner:
+            return []
+        return [_parse_scalar(item.strip()) for item in inner.split(",")]
+    return value
+
+
+def _load_simple_yaml(config_path: str) -> Dict[str, Any]:
+    with open(config_path, "r", encoding="utf-8") as handle:
+        lines = handle.readlines()
+
+    root: Dict[str, Any] = {}
+    stack: List[Tuple[int, Any]] = [(-1, root)]
+
+    for index, raw_line in enumerate(lines):
+        line = _strip_inline_comment(raw_line)
+        if not line.strip():
+            continue
+
+        indent = len(line) - len(line.lstrip(" "))
+        stripped = line.strip()
+
+        while len(stack) > 1 and indent <= stack[-1][0]:
+            stack.pop()
+
+        parent = stack[-1][1]
+        if stripped.startswith("- "):
+            if not isinstance(parent, list):
+                raise ValueError(f"Invalid YAML list structure in {config_path}: {raw_line.rstrip()}")
+            parent.append(_parse_scalar(stripped[2:]))
+            continue
+
+        key, _, raw_value = stripped.partition(":")
+        if not _:
+            raise ValueError(f"Invalid YAML entry in {config_path}: {raw_line.rstrip()}")
+
+        raw_value = raw_value.strip()
+        if raw_value:
+            parent[key] = _parse_scalar(raw_value)
+            continue
+
+        next_container: Any = {}
+        for future_raw_line in lines[index + 1:]:
+            future_line = _strip_inline_comment(future_raw_line)
+            if not future_line.strip():
+                continue
+            future_indent = len(future_line) - len(future_line.lstrip(" "))
+            if future_indent <= indent:
+                break
+            next_container = [] if future_line.strip().startswith("- ") else {}
+            break
+
+        parent[key] = next_container
+        stack.append((indent, next_container))
+
+    return root
+
+
 def load_registry(config_path: str = None) -> Dict[str, Any]:
     """Load connector registry YAML config."""
     if config_path is None:
         config_path = str(
             Path(__file__).parent.parent.parent / "config" / "connectors" / "connector_registry.yaml"
         )
-    with open(config_path, "r") as f:
-        return yaml.safe_load(f)
+
+    try:
+        import yaml  # type: ignore
+    except ModuleNotFoundError:
+        return _load_simple_yaml(config_path)
+
+    with open(config_path, "r", encoding="utf-8") as handle:
+        return yaml.safe_load(handle)
 
 
 def get_active_connectors(registry: Dict[str, Any]) -> Dict[str, ConnectorConfig]:
@@ -115,7 +218,9 @@ def create_connector(config: ConnectorConfig, secret_value: str) -> BaseConnecto
 
     if issubclass(connector_class, DatabaseConnector):
         return connector_class(config, connection_string=secret_value)
-    elif issubclass(connector_class, APIConnector):
+    if issubclass(connector_class, FileConnector):
+        return connector_class(config, credentials=secret_value)
+    if issubclass(connector_class, APIConnector):
         return connector_class(config, api_key=secret_value)
-    else:
-        raise ValueError(f"Unknown connector base class for '{config.name}'")
+
+    raise ValueError(f"Unknown connector base class for '{config.name}'")
