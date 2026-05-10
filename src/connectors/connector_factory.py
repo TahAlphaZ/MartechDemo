@@ -4,13 +4,14 @@ Subagents: Register new connector classes in CONNECTOR_CLASS_MAP.
 """
 import yaml
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict
 from src.connectors.base_connector import (
+    APIConnector,
     BaseConnector,
     ConnectorConfig,
     DatabaseConnector,
-    APIConnector,
 )
+from src.connectors.spreadsheet_connector import ExcelConnector, GoogleSheetsConnector, SpreadsheetConnector
 
 # ============================================================
 # CONNECTOR CLASS MAP
@@ -30,6 +31,9 @@ CONNECTOR_CLASS_MAP: Dict[str, type] = {
     "google_analytics": APIConnector,
     "adobe_analytics": APIConnector,
     "mixpanel": APIConnector,
+    # Spreadsheet connectors
+    "excel": ExcelConnector,
+    "google_sheets": GoogleSheetsConnector,
 }
 
 
@@ -86,6 +90,18 @@ def get_active_connectors(registry: Dict[str, Any]) -> Dict[str, ConnectorConfig
             extra=ecom_config,
         )
 
+    # Spreadsheet connectors
+    spreadsheet_section = registry.get("spreadsheets", {})
+    for spreadsheet_name in spreadsheet_section.get("active", []):
+        spreadsheet_config = spreadsheet_section.get("connectors", {}).get(spreadsheet_name, {})
+        active[f"spreadsheet_{spreadsheet_name}"] = ConnectorConfig(
+            name=spreadsheet_name,
+            connector_type="spreadsheet",
+            keyvault_secret=spreadsheet_config.get("keyvault_secret", ""),
+            landing_path=spreadsheet_config.get("landing_path", f"raw/spreadsheets/{spreadsheet_name}"),
+            extra=spreadsheet_config,
+        )
+
     # Analytics connectors
     analytics_section = registry.get("analytics", {})
     for analytics_name in analytics_section.get("active", []):
@@ -115,7 +131,8 @@ def create_connector(config: ConnectorConfig, secret_value: str) -> BaseConnecto
 
     if issubclass(connector_class, DatabaseConnector):
         return connector_class(config, connection_string=secret_value)
-    elif issubclass(connector_class, APIConnector):
+    if issubclass(connector_class, APIConnector):
         return connector_class(config, api_key=secret_value)
-    else:
-        raise ValueError(f"Unknown connector base class for '{config.name}'")
+    if issubclass(connector_class, SpreadsheetConnector):
+        return connector_class(config, credential=secret_value)
+    raise ValueError(f"Unknown connector base class for '{config.name}'")
