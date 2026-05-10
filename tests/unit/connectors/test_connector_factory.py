@@ -14,7 +14,8 @@ from src.connectors.connector_factory import (
     create_connector,
     CONNECTOR_CLASS_MAP,
 )
-from src.connectors.base_connector import ConnectorConfig, DatabaseConnector, APIConnector
+from src.connectors.base_connector import APIConnector, ConnectorConfig, DatabaseConnector
+from src.connectors.spreadsheet_connector import ExcelConnector, GoogleSheetsConnector, SpreadsheetConnector
 
 
 class TestRegistryLoading:
@@ -27,7 +28,7 @@ class TestRegistryLoading:
 
     def test_registry_has_required_sections(self):
         registry = load_registry()
-        required_sections = ["databases", "file_storage", "ecommerce", "analytics", "medallion"]
+        required_sections = ["databases", "file_storage", "ecommerce", "spreadsheets", "analytics", "medallion"]
         for section in required_sections:
             assert section in registry, f"Missing required section: {section}"
 
@@ -66,6 +67,26 @@ class TestActiveConnectorResolution:
         analytics_keys = [k for k in active if k.startswith("analytics_")]
         assert len(analytics_keys) == 0
 
+    def test_no_spreadsheets_active_by_default(self):
+        registry = load_registry()
+        active = get_active_connectors(registry)
+        spreadsheet_keys = [k for k in active if k.startswith("spreadsheet_")]
+        assert len(spreadsheet_keys) == 0
+
+    def test_enabling_excel_connector(self):
+        registry = load_registry()
+        registry["spreadsheets"]["active"] = ["excel"]
+        active = get_active_connectors(registry)
+        assert "spreadsheet_excel" in active
+        assert active["spreadsheet_excel"].connector_type == "spreadsheet"
+
+    def test_enabling_google_sheets_connector(self):
+        registry = load_registry()
+        registry["spreadsheets"]["active"] = ["google_sheets"]
+        active = get_active_connectors(registry)
+        assert "spreadsheet_google_sheets" in active
+        assert active["spreadsheet_google_sheets"].connector_type == "spreadsheet"
+
     def test_enabling_google_analytics(self):
         registry = load_registry()
         registry["analytics"]["active"] = ["google_analytics"]
@@ -85,7 +106,7 @@ class TestActiveConnectorResolution:
         for key, config in active.items():
             assert isinstance(config, ConnectorConfig)
             assert config.name != ""
-            assert config.connector_type in ("database", "file", "api", "analytics")
+            assert config.connector_type in ("database", "file", "api", "analytics", "spreadsheet")
 
 
 class TestConnectorFactory:
@@ -112,6 +133,30 @@ class TestConnectorFactory:
         connector = create_connector(config, "test-api-key")
         assert isinstance(connector, APIConnector)
 
+    def test_create_excel_connector(self):
+        config = ConnectorConfig(
+            name="excel",
+            connector_type="spreadsheet",
+            keyvault_secret="test-secret",
+            landing_path="raw/spreadsheets/excel",
+            extra={"workbook_id": "wb-123", "worksheet": "Sheet1"},
+        )
+        connector = create_connector(config, "graph-secret")
+        assert isinstance(connector, ExcelConnector)
+        assert isinstance(connector, SpreadsheetConnector)
+
+    def test_create_google_sheets_connector(self):
+        config = ConnectorConfig(
+            name="google_sheets",
+            connector_type="spreadsheet",
+            keyvault_secret="test-secret",
+            landing_path="raw/spreadsheets/google_sheets",
+            extra={"spreadsheet_id": "sheet-123", "default_range": "Sheet1!A:Z"},
+        )
+        connector = create_connector(config, "service-account-json")
+        assert isinstance(connector, GoogleSheetsConnector)
+        assert isinstance(connector, SpreadsheetConnector)
+
     def test_unknown_connector_raises(self):
         config = ConnectorConfig(
             name="unknown_platform",
@@ -125,6 +170,6 @@ class TestConnectorFactory:
     def test_all_registered_connectors_have_classes(self):
         """Ensure every entry in CONNECTOR_CLASS_MAP points to a valid class."""
         for name, cls in CONNECTOR_CLASS_MAP.items():
-            assert issubclass(cls, (DatabaseConnector, APIConnector)), (
-                f"Connector '{name}' class must inherit DatabaseConnector or APIConnector"
+            assert issubclass(cls, (DatabaseConnector, APIConnector, SpreadsheetConnector)), (
+                f"Connector '{name}' class must inherit DatabaseConnector, APIConnector, or SpreadsheetConnector"
             )

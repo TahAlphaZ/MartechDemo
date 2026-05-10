@@ -89,6 +89,27 @@ ecommerce:
       rate_limit: 5
       landing_path: "raw/ecommerce/woocommerce"
 
+# --- SPREADSHEET CONNECTORS ---
+# Connectors for Excel workbooks and Google Sheets documents.
+spreadsheets:
+  active: []  # Enable by adding: ["excel", "google_sheets"]
+  connectors:
+    excel:
+      type: "microsoft_graph"
+      auth_type: "oauth_client_credentials"
+      keyvault_secret: "excel-graph-client-secret"
+      workbook_id: "{driveItemId}"
+      worksheet: "Sheet1"
+      landing_path: "raw/spreadsheets/excel"
+
+    google_sheets:
+      type: "google_sheets_api"
+      auth_type: "service_account"
+      keyvault_secret: "google-sheets-service-account-json"
+      spreadsheet_id: "{spreadsheetId}"
+      default_range: "Sheet1!A:Z"
+      landing_path: "raw/spreadsheets/google_sheets"
+
 # --- ANALYTICS CONNECTORS ---
 # Subagents: Add new analytics platforms here.
 analytics:
