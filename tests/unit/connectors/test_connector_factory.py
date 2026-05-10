@@ -12,6 +12,7 @@ import pytest
 from src.connectors.adobe_analytics_connector import AdobeAnalyticsConnector
 from src.connectors.base_connector import APIConnector, ConnectorConfig, DatabaseConnector, FileConnector
 from src.connectors.connector_factory import CONNECTOR_CLASS_MAP, create_connector, get_active_connectors, load_registry
+from src.connectors.excel_connector import ExcelConnector
 from src.connectors.google_analytics_connector import GoogleAnalyticsConnector
 
 SERVICE_ACCOUNT_SECRET = (
@@ -97,6 +98,15 @@ class TestActiveConnectorResolution:
         with pytest.raises(ValueError, match="Active connector 'does_not_exist'"):
             get_active_connectors(registry)
 
+    def test_switching_file_storage_to_excel(self):
+        registry = load_registry()
+        registry["file_storage"]["active"] = "excel"
+
+        active = get_active_connectors(registry)
+
+        assert "file_excel" in active
+        assert active["file_excel"].landing_path == "raw/files/excel"
+
 
 class TestConnectorFactory:
     """TDD: Factory creates correct connector types."""
@@ -166,6 +176,17 @@ class TestConnectorFactory:
         )
         connector = create_connector(config, "username=test;password=secret")
         assert isinstance(connector, FileConnector)
+
+    def test_create_excel_connector(self):
+        config = ConnectorConfig(
+            name="excel",
+            connector_type="file",
+            keyvault_secret="test-secret",
+            landing_path="raw/files/excel",
+            extra={"file_pattern": "*.xlsx", "header_row": 1},
+        )
+        connector = create_connector(config, '{"base_path": "/tmp/source"}')
+        assert isinstance(connector, ExcelConnector)
 
     def test_unknown_connector_raises(self):
         config = ConnectorConfig(

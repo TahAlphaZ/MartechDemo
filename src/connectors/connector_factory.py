@@ -17,6 +17,7 @@ from src.connectors.base_connector import (
     DatabaseConnector,
     FileConnector,
 )
+from src.connectors.excel_connector import ExcelConnector
 from src.connectors.google_analytics_connector import GoogleAnalyticsConnector
 
 # ============================================================
@@ -32,6 +33,7 @@ CONNECTOR_CLASS_MAP: dict[str, type[BaseConnector]] = {
     # File connectors
     "sftp": FileConnector,
     "azure_blob": FileConnector,
+    "excel": ExcelConnector,
     # Ecommerce connectors (override with specific classes when ready)
     "shopify": APIConnector,
     "magento": APIConnector,

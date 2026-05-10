@@ -38,7 +38,7 @@ databases:
 
 # --- FILE/STORAGE CONNECTORS ---
 file_storage:
-  active: sftp
+  active: sftp  # Options: sftp | azure_blob | excel
   connectors:
     sftp:
       type: "Sftp"
@@ -49,6 +49,13 @@ file_storage:
       type: "AzureBlobStorage"
       keyvault_secret: "blob-connection-string"
       landing_path: "raw/files/blob"
+
+    excel:
+      type: "ExcelWorkbook"
+      keyvault_secret: "excel-source-path"
+      landing_path: "raw/files/excel"
+      file_pattern: "*.xlsx"
+      header_row: 1
 
 # --- ECOMMERCE API CONNECTORS ---
 # Subagents: Add new ecommerce platforms here.
