@@ -145,3 +145,35 @@ class APIConnector(BaseConnector):
     def _make_request(self, method: str, endpoint: str, params: Optional[Dict] = None) -> Dict:
         """Override in concrete implementations for actual HTTP calls."""
         raise NotImplementedError("Subclass must implement _make_request")
+
+
+class FileConnector(APIConnector):
+    """
+    Base class for file-based connectors such as SFTP and blob storage.
+    """
+
+    def __init__(self, config: ConnectorConfig, credentials: str):
+        super().__init__(config, api_key=credentials)
+        self.credentials = credentials
+        self.base_path = config.extra.get("landing_path", config.landing_path)
+
+    def validate_connection(self) -> bool:
+        """Ensure credentials exist before file operations begin."""
+        self._is_connected = bool(self.credentials)
+        if not self._is_connected:
+            logger.error("File connector credentials missing for %s", self.config.name)
+        return self._is_connected
+
+    def extract(self, query_or_endpoint: str, params: Optional[Dict] = None) -> Any:
+        """Read file content from a remote or mounted path."""
+        if not self._is_connected and not self.validate_connection():
+            raise ValueError(f"Connection failed for file connector '{self.config.name}'")
+        return self._read(query_or_endpoint, params)
+
+    def get_schema(self) -> Dict[str, Any]:
+        """Return the configured schema when one is declared."""
+        return self.config.extra.get("schema", {})
+
+    def _read(self, path: str, params: Optional[Dict] = None) -> Any:
+        """Override in concrete implementations for actual file reads."""
+        raise NotImplementedError("Subclass must implement _read")

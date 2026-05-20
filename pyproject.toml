@@ -20,6 +20,9 @@ dev = [
     "mypy>=1.6",
     "great-expectations>=0.18",
 ]
+access = [
+    "pyodbc>=5.1",
+]
 spark = [
     "pyspark>=3.5",
     "delta-spark>=3.0",
