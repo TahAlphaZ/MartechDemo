@@ -7,7 +7,8 @@ Write tests FIRST, then implement. Tests validate:
 - DB swap (postgres ↔ sqlserver) works transparently
 """
 import pytest
-from unittest.mock import patch, MagicMock
+import sys
+from unittest.mock import MagicMock
 from src.connectors.connector_factory import (
     load_registry,
     get_active_connectors,
@@ -15,6 +16,7 @@ from src.connectors.connector_factory import (
     CONNECTOR_CLASS_MAP,
 )
 from src.connectors.base_connector import ConnectorConfig, DatabaseConnector, APIConnector
+from src.connectors.access_connector import MicrosoftAccessConnector
 
 
 class TestRegistryLoading:
@@ -60,6 +62,13 @@ class TestActiveConnectorResolution:
         assert "db_sqlserver" in active
         assert "db_postgres" not in active
 
+    def test_switching_db_to_access(self):
+        registry = load_registry()
+        registry["databases"]["active"] = "access"
+        active = get_active_connectors(registry)
+        assert "db_access" in active
+        assert active["db_access"].landing_path == "raw/database/access"
+
     def test_no_analytics_active_by_default(self):
         registry = load_registry()
         active = get_active_connectors(registry)
@@ -101,6 +110,18 @@ class TestConnectorFactory:
         connector = create_connector(config, "postgresql://test:test@localhost/db")
         assert isinstance(connector, DatabaseConnector)
 
+    def test_create_access_connector(self):
+        config = ConnectorConfig(
+            name="access",
+            connector_type="database",
+            keyvault_secret="test-secret",
+            landing_path="raw/db/access",
+            extra={"driver": "Microsoft Access Driver (*.mdb, *.accdb)"},
+        )
+        connector = create_connector(config, "/tmp/marketing.accdb")
+        assert isinstance(connector, MicrosoftAccessConnector)
+        assert "DBQ=/tmp/marketing.accdb" in connector.connection_string
+
     def test_create_api_connector(self):
         config = ConnectorConfig(
             name="shopify",
@@ -128,3 +149,134 @@ class TestConnectorFactory:
             assert issubclass(cls, (DatabaseConnector, APIConnector)), (
                 f"Connector '{name}' class must inherit DatabaseConnector or APIConnector"
             )
+
+
+class TestMicrosoftAccessConnector:
+    def test_builds_connection_string_from_access_file(self):
+        config = ConnectorConfig(
+            name="access",
+            connector_type="database",
+            keyvault_secret="access-secret",
+            landing_path="raw/database/access",
+            extra={"driver": "Microsoft Access Driver (*.mdb, *.accdb)", "readonly": True},
+        )
+
+        connector = MicrosoftAccessConnector(config, "/data/marketing.accdb")
+
+        assert connector.connection_string.startswith("Driver={Microsoft Access Driver (*.mdb, *.accdb)};")
+        assert "DBQ=/data/marketing.accdb" in connector.connection_string
+        assert "ReadOnly=1" in connector.connection_string
+
+    def test_preserves_explicit_connection_string(self):
+        config = ConnectorConfig(
+            name="access",
+            connector_type="database",
+            keyvault_secret="access-secret",
+            landing_path="raw/database/access",
+        )
+
+        connector = MicrosoftAccessConnector(
+            config,
+            "Driver={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=/data/marketing.accdb;",
+        )
+
+        assert connector.connection_string == "Driver={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=/data/marketing.accdb;"
+
+    def test_extract_executes_sql_and_maps_rows(self, monkeypatch):
+        executed = {}
+
+        class FakeCursor:
+            description = [("campaign_id",), ("spend",)]
+
+            def execute(self, query, *params):
+                executed["query"] = query
+                executed["params"] = params
+                return self
+
+            def fetchall(self):
+                return [(101, 99.5)]
+
+        class FakeConnection:
+            def cursor(self):
+                return FakeCursor()
+
+        fake_pyodbc = MagicMock()
+        fake_pyodbc.connect.return_value = FakeConnection()
+        monkeypatch.setitem(sys.modules, "pyodbc", fake_pyodbc)
+
+        config = ConnectorConfig(
+            name="access",
+            connector_type="database",
+            keyvault_secret="access-secret",
+            landing_path="raw/database/access",
+        )
+        connector = MicrosoftAccessConnector(config, "/data/marketing.accdb")
+
+        result = connector.extract("SELECT campaign_id, spend FROM campaigns WHERE channel = ?", ("email",))
+
+        assert result == [{"campaign_id": 101, "spend": 99.5}]
+        assert executed["query"] == "SELECT campaign_id, spend FROM campaigns WHERE channel = ?"
+        assert executed["params"] == ("email",)
+
+    def test_get_schema_returns_tables_and_columns(self, monkeypatch):
+        class FakeTable:
+            def __init__(self, table_name):
+                self.table_name = table_name
+
+        class FakeColumn:
+            def __init__(self, column_name, type_name, nullable):
+                self.column_name = column_name
+                self.type_name = type_name
+                self.nullable = nullable
+
+        class FakeCursor:
+            description = None
+
+            def __init__(self, mode):
+                self.mode = mode
+
+            def tables(self, tableType=None):
+                assert tableType == "TABLE"
+                return [FakeTable("Campaigns"), FakeTable("MSysObjects")]
+
+            def columns(self, table=None):
+                if table == "Campaigns":
+                    return [
+                        FakeColumn("CampaignID", "INTEGER", False),
+                        FakeColumn("Spend", "DOUBLE", True),
+                    ]
+                return []
+
+        class FakeConnection:
+            def __init__(self):
+                self.calls = 0
+
+            def cursor(self):
+                self.calls += 1
+                return FakeCursor(self.calls)
+
+        fake_pyodbc = MagicMock()
+        fake_pyodbc.connect.return_value = FakeConnection()
+        monkeypatch.setitem(sys.modules, "pyodbc", fake_pyodbc)
+
+        config = ConnectorConfig(
+            name="access",
+            connector_type="database",
+            keyvault_secret="access-secret",
+            landing_path="raw/database/access",
+        )
+        connector = MicrosoftAccessConnector(config, "/data/marketing.accdb")
+
+        schema = connector.get_schema()
+
+        assert schema == {
+            "tables": [
+                {
+                    "table_name": "Campaigns",
+                    "columns": [
+                        {"column_name": "CampaignID", "data_type": "INTEGER", "nullable": False},
+                        {"column_name": "Spend", "data_type": "DOUBLE", "nullable": True},
+                    ],
+                }
+            ]
+        }

@@ -10,7 +10,7 @@
 # To switch DB: change 'active' to the desired engine.
 # All configs share the same interface (IDBConnector).
 databases:
-  active: postgres  # Options: postgres | sqlserver | mysql | oracle
+  active: postgres  # Options: postgres | sqlserver | mysql | access | oracle
   connectors:
     postgres:
       driver: "org.postgresql.Driver"
@@ -35,6 +35,16 @@ databases:
       default_port: 3306
       jdbc_template: "jdbc:mysql://{host}:{port}/{database}"
       test_query: "SELECT 1"
+
+    access:
+      driver: "Microsoft Access Driver (*.mdb, *.accdb)"
+      arm_linked_service_type: "Odbc"
+      keyvault_secret: "access-db-path-or-connection-string"
+      default_port: 0
+      jdbc_template: "jdbc:ucanaccess://{database_path}"
+      test_query: "SELECT 1 AS connection_ok"
+      landing_path: "raw/database/access"
+      readonly: true
 
 # --- FILE/STORAGE CONNECTORS ---
 file_storage:

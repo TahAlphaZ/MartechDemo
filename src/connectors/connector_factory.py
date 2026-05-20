@@ -15,6 +15,7 @@ from src.connectors.base_connector import (
     DatabaseConnector,
     FileConnector,
 )
+from src.connectors.access_connector import MicrosoftAccessConnector
 
 # ============================================================
 # CONNECTOR CLASS MAP
@@ -26,6 +27,7 @@ CONNECTOR_CLASS_MAP: Dict[str, type] = {
     "postgres": DatabaseConnector,
     "sqlserver": DatabaseConnector,
     "mysql": DatabaseConnector,
+    "access": MicrosoftAccessConnector,
     # File storage connectors
     "sftp": FileConnector,
     "azure_blob": FileConnector,
@@ -161,7 +163,7 @@ def get_active_connectors(registry: Dict[str, Any]) -> Dict[str, ConnectorConfig
         name=active_db,
         connector_type="database",
         keyvault_secret=db_config.get("keyvault_secret", ""),
-        landing_path=f"raw/database/{active_db}",
+        landing_path=db_config.get("landing_path", f"raw/database/{active_db}"),
         extra=db_config,
     )
 
