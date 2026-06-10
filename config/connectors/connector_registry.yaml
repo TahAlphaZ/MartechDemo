@@ -38,7 +38,7 @@ databases:
 
 # --- FILE/STORAGE CONNECTORS ---
 file_storage:
-  active: sftp
+  active: sftp  # Options: sftp | azure_blob | excel
   connectors:
     sftp:
       type: "Sftp"
@@ -49,6 +49,13 @@ file_storage:
       type: "AzureBlobStorage"
       keyvault_secret: "blob-connection-string"
       landing_path: "raw/files/blob"
+
+    excel:
+      type: "ExcelWorkbook"
+      keyvault_secret: "excel-source-path"
+      landing_path: "raw/files/excel"
+      file_pattern: "*.xlsx"
+      header_row: 1
 
 # --- ECOMMERCE API CONNECTORS ---
 # Subagents: Add new ecommerce platforms here.
@@ -118,12 +125,36 @@ analytics:
     adobe_analytics:
       type: "rest_api"
       base_url: "https://analytics.adobe.io/api/{company_id}"
-      auth_type: "jwt"
+      auth_type: "oauth_server_to_server"
       keyvault_secret: "adobe-analytics-jwt"
+      token_endpoint: "https://ims-na1.adobelogin.com/ims/token/v3"
+      scopes:
+        - "openid"
+        - "AdobeID"
+        - "additional_info.projectedProductContext"
+        - "analytics_read"
       endpoints:
         reports: "/reports"
         segments: "/segments"
       landing_path: "raw/analytics/adobe_analytics"
+      default_dimensions:
+        - "variables/daterangeday"
+      breakdown_dimensions:
+        - "variables/marketingchannel"
+      default_metrics:
+        - "metrics/visits"
+        - "metrics/visitors"
+        - "metrics/pageviews"
+        - "metrics/orders"
+        - "metrics/revenue"
+      column_aliases:
+        "variables/daterangeday": "report_date"
+        "variables/marketingchannel": "marketing_channel"
+        "metrics/visits": "visits"
+        "metrics/visitors": "unique_visitors"
+        "metrics/pageviews": "page_views"
+        "metrics/orders": "orders"
+        "metrics/revenue": "revenue"
 
     mixpanel:
       type: "rest_api"

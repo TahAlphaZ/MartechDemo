@@ -9,6 +9,8 @@ dependencies = [
     "azure-identity>=1.14",
     "azure-keyvault-secrets>=4.7",
     "azure-storage-file-datalake>=12.14",
+    "google-auth>=2.29",
+    "requests>=2.31",
 ]
 
 [project.optional-dependencies]
