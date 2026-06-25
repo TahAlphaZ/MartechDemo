@@ -145,6 +145,50 @@ analytics:
         engage: "/engage"
       landing_path: "raw/analytics/mixpanel"
 
+# --- CRM CONNECTORS ---
+# Subagents: Add new CRM platforms here.
+crm:
+  active: []  # Enable by adding: ["hubspot"]
+  connectors:
+    hubspot:
+      type: "rest_api"
+      base_url: "https://api.hubapi.com"
+      auth_type: "bearer_token"
+      keyvault_secret: "hubspot-api-key"
+      endpoints:
+        contacts: "/crm/v3/objects/contacts"
+        companies: "/crm/v3/objects/companies"
+        deals: "/crm/v3/objects/deals"
+        tickets: "/crm/v3/objects/tickets"
+      rate_limit: 10
+      landing_path: "raw/crm/hubspot"
+      properties:
+        contacts:
+          - firstname
+          - lastname
+          - email
+          - phone
+          - lifecyclestage
+          - hs_lead_status
+        companies:
+          - name
+          - industry
+          - website
+          - country
+          - annualrevenue
+        deals:
+          - dealname
+          - amount
+          - dealstage
+          - closedate
+          - hubspotownerid
+        tickets:
+          - subject
+          - content
+          - hs_ticket_priority
+          - status
+          - hs_ticket_category
+
 # --- MEDALLION ZONE CONFIGURATION ---
 medallion:
   raw:

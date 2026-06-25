@@ -16,6 +16,7 @@ from src.connectors.base_connector import (
     FileConnector,
 )
 from src.connectors.access_connector import MicrosoftAccessConnector
+from src.connectors.hubspot_connector import HubSpotConnector
 
 # ============================================================
 # CONNECTOR CLASS MAP
@@ -31,6 +32,8 @@ CONNECTOR_CLASS_MAP: Dict[str, type] = {
     # File storage connectors
     "sftp": FileConnector,
     "azure_blob": FileConnector,
+    # CRM connectors
+    "hubspot": HubSpotConnector,
     # Ecommerce connectors (override with specific classes when ready)
     "shopify": APIConnector,
     "magento": APIConnector,
