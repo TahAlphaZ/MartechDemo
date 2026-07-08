@@ -9,6 +9,7 @@ dependencies = [
     "azure-identity>=1.14",
     "azure-keyvault-secrets>=4.7",
     "azure-storage-file-datalake>=12.14",
+    "requests>=2.31",
 ]
 
 [project.optional-dependencies]
@@ -19,6 +20,12 @@ dev = [
     "ruff>=0.1",
     "mypy>=1.6",
     "great-expectations>=0.18",
+]
+access = [
+    "pyodbc>=5.1",
+]
+hubspot = [
+    "requests>=2.31",
 ]
 spark = [
     "pyspark>=3.5",
