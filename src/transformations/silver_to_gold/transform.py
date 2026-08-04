@@ -3,7 +3,7 @@ Silver → Gold Transformation Layer
 Handles: aggregation, business logic, dimensional modeling for BI.
 Designed for Fabric Notebooks (PySpark).
 """
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 
 class SilverToGoldTransformer:
@@ -51,10 +51,20 @@ class SilverToGoldTransformer:
             "description": "Campaign-level ROAS and conversion metrics",
         },
     }
+    CUSTOMER_COUNTRY_EMAIL_OVERRIDES = {
+        "jimit.raval@humbot": "MOZ",
+    }
 
     def __init__(self, spark_session: Any, config: Dict[str, Any]):
         self.spark = spark_session
         self.config = config
+
+    @classmethod
+    def customer_country_for_email(cls, email: Optional[str]) -> Optional[str]:
+        """Return a country override for a customer email when one is configured."""
+        if email is None:
+            return None
+        return cls.CUSTOMER_COUNTRY_EMAIL_OVERRIDES.get(email.strip().lower())
 
     def build_model(self, model_name: str, silver_base_path: str, gold_path: str) -> Dict[str, Any]:
         """
@@ -137,3 +147,54 @@ class SilverToGoldTransformer:
                 F.avg("total_amount").alias("aov"),
             )
         )
+
+    def _build_dim_customers(self, silver_dfs: Dict[str, Any]) -> Any:
+        """Build the unified customer dimension and apply country overrides."""
+        from pyspark.sql import functions as F
+
+        available = [
+            silver_dfs[source]
+            for source in ("ecommerce_customers", "crm_contacts")
+            if silver_dfs.get(source) is not None
+        ]
+        if not available:
+            raise ValueError("At least one customer silver table is required for dim_customers")
+
+        df_gold = available[0]
+        for df in available[1:]:
+            df_gold = df_gold.unionByName(df, allowMissingColumns=True)
+
+        if "email" in df_gold.columns:
+            df_gold = self._apply_customer_country_overrides(df_gold)
+
+        if "report_date" not in df_gold.columns:
+            if "_processing_date" in df_gold.columns:
+                df_gold = df_gold.withColumn("report_date", F.to_date(F.col("_processing_date")))
+            elif "_ingestion_date" in df_gold.columns:
+                df_gold = df_gold.withColumn("report_date", F.to_date(F.col("_ingestion_date")))
+            else:
+                df_gold = df_gold.withColumn("report_date", F.current_date())
+
+        dedup_keys = [column for column in ("customer_id", "id", "email") if column in df_gold.columns]
+        return df_gold.dropDuplicates(dedup_keys) if dedup_keys else df_gold.dropDuplicates()
+
+    def _apply_customer_country_overrides(self, df: Any) -> Any:
+        """Override country fields for specific customer emails."""
+        from pyspark.sql import functions as F
+
+        override_entries: List[Any] = []
+        for email, country in self.CUSTOMER_COUNTRY_EMAIL_OVERRIDES.items():
+            override_entries.extend([F.lit(email), F.lit(country)])
+
+        override_map = F.create_map(*override_entries)
+        normalized_email = F.lower(F.trim(F.col("email")))
+        override_country = override_map[normalized_email]
+
+        if "country_code" in df.columns:
+            df = df.withColumn("country_code", F.coalesce(override_country, F.col("country_code")))
+        elif "country" in df.columns:
+            df = df.withColumn("country", F.coalesce(override_country, F.col("country")))
+        else:
+            df = df.withColumn("country_code", override_country)
+
+        return df
