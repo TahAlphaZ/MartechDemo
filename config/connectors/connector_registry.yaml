@@ -92,28 +92,30 @@ ecommerce:
 # --- ANALYTICS CONNECTORS ---
 # Subagents: Add new analytics platforms here.
 analytics:
-  active: []  # Enable by adding: ["google_analytics", "adobe_analytics"]
+  active: ["google_analytics"]  # Enable by adding: ["google_analytics", "adobe_analytics"]
   connectors:
     google_analytics:
       type: "rest_api"
       base_url: "https://analyticsdata.googleapis.com/v1beta"
       auth_type: "service_account"
       keyvault_secret: "ga4-service-account-json"
-      property_id_secret: "ga4-property-id"
+      property_id: "${GA4_PROPERTY_ID}"
       endpoints:
         reports: "/properties/{property_id}:runReport"
         realtime: "/properties/{property_id}:runRealtimeReport"
       landing_path: "raw/analytics/google_analytics"
-      default_dimensions:
+      dimensions:
         - "date"
         - "sessionSource"
         - "sessionMedium"
         - "sessionCampaignName"
-      default_metrics:
+      metrics:
         - "sessions"
         - "totalUsers"
         - "conversions"
         - "totalRevenue"
+      rate_limit: 10
+      date_range_days: 1
 
     adobe_analytics:
       type: "rest_api"
