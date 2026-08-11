@@ -60,11 +60,13 @@ class TestActiveConnectorResolution:
         assert "db_sqlserver" in active
         assert "db_postgres" not in active
 
-    def test_no_analytics_active_by_default(self):
+    def test_google_analytics_active_by_default(self):
+        """Google Analytics should be active by default after setup."""
         registry = load_registry()
         active = get_active_connectors(registry)
         analytics_keys = [k for k in active if k.startswith("analytics_")]
-        assert len(analytics_keys) == 0
+        assert len(analytics_keys) == 1
+        assert "analytics_google_analytics" in active
 
     def test_enabling_google_analytics(self):
         registry = load_registry()

@@ -92,7 +92,7 @@ ecommerce:
 # --- ANALYTICS CONNECTORS ---
 # Subagents: Add new analytics platforms here.
 analytics:
-  active: []  # Enable by adding: ["google_analytics", "adobe_analytics"]
+  active: ["google_analytics"]  # Enabled: Google Analytics 4 connector
   connectors:
     google_analytics:
       type: "rest_api"
