@@ -22,6 +22,7 @@ CONNECTOR_CLASS_MAP: Dict[str, type] = {
     "postgres": DatabaseConnector,
     "sqlserver": DatabaseConnector,
     "mysql": DatabaseConnector,
+    "snowflake": DatabaseConnector,
     # Ecommerce connectors (override with specific classes when ready)
     "shopify": APIConnector,
     "magento": APIConnector,
