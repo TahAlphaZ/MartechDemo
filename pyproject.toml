@@ -9,6 +9,7 @@ dependencies = [
     "azure-identity>=1.14",
     "azure-keyvault-secrets>=4.7",
     "azure-storage-file-datalake>=12.14",
+    "snowflake-connector-python>=3.1.0",
 ]
 
 [project.optional-dependencies]

@@ -10,7 +10,7 @@
 # To switch DB: change 'active' to the desired engine.
 # All configs share the same interface (IDBConnector).
 databases:
-  active: postgres  # Options: postgres | sqlserver | mysql | oracle
+  active: postgres  # Options: postgres | sqlserver | mysql | oracle | snowflake
   connectors:
     postgres:
       driver: "org.postgresql.Driver"
@@ -35,6 +35,16 @@ databases:
       default_port: 3306
       jdbc_template: "jdbc:mysql://{host}:{port}/{database}"
       test_query: "SELECT 1"
+
+    snowflake:
+      driver: "snowflake.connector"
+      keyvault_secret: "snowflake-connection-params"
+      account_id_secret: "snowflake-account-id"
+      warehouse: "ANALYTICS"
+      database: "MARKETING"
+      schema: "RAW"
+      role: "TRANSFORMER"
+      test_query: "SELECT 1 as test_value"
 
 # --- FILE/STORAGE CONNECTORS ---
 file_storage:

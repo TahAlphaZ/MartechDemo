@@ -2,6 +2,7 @@
 Connector Factory - Dynamically instantiates connectors from registry config.
 Subagents: Register new connector classes in CONNECTOR_CLASS_MAP.
 """
+import json
 import yaml
 from pathlib import Path
 from typing import Dict, Any
@@ -11,6 +12,7 @@ from src.connectors.base_connector import (
     DatabaseConnector,
     APIConnector,
 )
+from src.connectors.snowflake_connector import SnowflakeConnector
 
 # ============================================================
 # CONNECTOR CLASS MAP
@@ -22,6 +24,7 @@ CONNECTOR_CLASS_MAP: Dict[str, type] = {
     "postgres": DatabaseConnector,
     "sqlserver": DatabaseConnector,
     "mysql": DatabaseConnector,
+    "snowflake": SnowflakeConnector,
     # Ecommerce connectors (override with specific classes when ready)
     "shopify": APIConnector,
     "magento": APIConnector,
@@ -113,7 +116,11 @@ def create_connector(config: ConnectorConfig, secret_value: str) -> BaseConnecto
             f"Register it in CONNECTOR_CLASS_MAP in connector_factory.py"
         )
 
-    if issubclass(connector_class, DatabaseConnector):
+    if connector_class == SnowflakeConnector:
+        # Snowflake connector expects connection_params dict instead of connection_string
+        connection_params = json.loads(secret_value) if isinstance(secret_value, str) else secret_value
+        return connector_class(config, connection_params=connection_params)
+    elif issubclass(connector_class, DatabaseConnector):
         return connector_class(config, connection_string=secret_value)
     elif issubclass(connector_class, APIConnector):
         return connector_class(config, api_key=secret_value)
