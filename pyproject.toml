@@ -24,6 +24,10 @@ spark = [
     "pyspark>=3.5",
     "delta-spark>=3.0",
 ]
+connectors = [
+    "pyodbc>=4.0.39",  # Microsoft Access and SQL Server ODBC connector
+    "snowflake-connector-python>=3.0",  # Snowflake connector
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

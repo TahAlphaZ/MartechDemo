@@ -11,6 +11,7 @@ from src.connectors.base_connector import (
     DatabaseConnector,
     APIConnector,
 )
+from src.connectors.microsoft_access_connector import MicrosoftAccessConnector
 
 # ============================================================
 # CONNECTOR CLASS MAP
@@ -20,6 +21,7 @@ from src.connectors.base_connector import (
 CONNECTOR_CLASS_MAP: Dict[str, type] = {
     # Database connectors
     "postgres": DatabaseConnector,
+    "microsoft_access": MicrosoftAccessConnector,
     "sqlserver": DatabaseConnector,
     "mysql": DatabaseConnector,
     # Ecommerce connectors (override with specific classes when ready)
