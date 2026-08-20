@@ -1,0 +1,49 @@
+{
+  "task_id": "slack_martech_pipeline_notifications",
+  "name": "MarTech Pipeline Slack Notifications",
+  "description": "Slack integration for MarTech Retail Data Pipeline CI/CD and data quality alerts",
+  "type": "slack_notification",
+  "triggers": [
+    {
+      "event": "ci_pipeline_start",
+      "webhook": "${SLACK_WEBHOOK_CI}",
+      "message": "🚀 CI/CD Pipeline Started: MarTech Retail Data Pipeline",
+      "include_metadata": ["branch", "commit_sha", "timestamp"]
+    },
+    {
+      "event": "ci_pipeline_success",
+      "webhook": "${SLACK_WEBHOOK_CI}",
+      "message": "✅ CI/CD Pipeline Passed: All tests and quality checks passed",
+      "include_metadata": ["branch", "test_count", "coverage_percent"]
+    },
+    {
+      "event": "ci_pipeline_failure",
+      "webhook": "${SLACK_WEBHOOK_ALERTS}",
+      "message": "❌ CI/CD Pipeline Failed: Review logs for details",
+      "include_metadata": ["branch", "failure_reason", "failed_stage"]
+    },
+    {
+      "event": "data_quality_check",
+      "webhook": "${SLACK_WEBHOOK_ALERTS}",
+      "message": "📊 Data Quality Validation Alert",
+      "include_metadata": ["validation_type", "status", "record_count"]
+    },
+    {
+      "event": "azure_fabric_sync",
+      "webhook": "${SLACK_WEBHOOK_DATA}",
+      "message": "☁️ Azure Fabric Data Sync Completed",
+      "include_metadata": ["dataset_name", "row_count", "sync_duration_seconds"]
+    }
+  ],
+  "channels": {
+    "ci": "#martech-pipeline-ci",
+    "alerts": "#martech-pipeline-alerts",
+    "data": "#martech-pipeline-data"
+  },
+  "notification_rules": {
+    "thread_replies": true,
+    "mention_on_failure": ["@data-platform-team"],
+    "retry_on_failure": 3,
+    "retry_delay_seconds": 60
+  }
+}
