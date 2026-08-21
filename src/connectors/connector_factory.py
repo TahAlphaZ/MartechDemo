@@ -11,6 +11,7 @@ from src.connectors.base_connector import (
     DatabaseConnector,
     APIConnector,
 )
+from src.connectors.databricks_connector import DatabricksConnector
 
 # ============================================================
 # CONNECTOR CLASS MAP
@@ -22,6 +23,8 @@ CONNECTOR_CLASS_MAP: Dict[str, type] = {
     "postgres": DatabaseConnector,
     "sqlserver": DatabaseConnector,
     "mysql": DatabaseConnector,
+    # Databricks connector
+    "databricks": DatabricksConnector,
     # Ecommerce connectors (override with specific classes when ready)
     "shopify": APIConnector,
     "magento": APIConnector,
@@ -98,6 +101,18 @@ def get_active_connectors(registry: Dict[str, Any]) -> Dict[str, ConnectorConfig
             extra=analytics_config,
         )
 
+    # Databricks connector
+    databricks_section = registry.get("databricks", {})
+    if databricks_section.get("enabled", False):
+        databricks_config = databricks_section.get("config", {})
+        active["databricks"] = ConnectorConfig(
+            name="databricks",
+            connector_type="analytics",
+            keyvault_secret=databricks_config.get("keyvault_secret", ""),
+            landing_path=databricks_config.get("landing_path", "raw/databricks"),
+            extra=databricks_config,
+        )
+
     return active
 
 
@@ -117,5 +132,7 @@ def create_connector(config: ConnectorConfig, secret_value: str) -> BaseConnecto
         return connector_class(config, connection_string=secret_value)
     elif issubclass(connector_class, APIConnector):
         return connector_class(config, api_key=secret_value)
+    elif issubclass(connector_class, DatabricksConnector):
+        return connector_class(config, access_token=secret_value)
     else:
         raise ValueError(f"Unknown connector base class for '{config.name}'")
