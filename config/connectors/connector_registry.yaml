@@ -135,6 +135,23 @@ analytics:
         engage: "/engage"
       landing_path: "raw/analytics/mixpanel"
 
+# --- DATABRICKS CONNECTOR ---
+# Extract datasets from Databricks workspaces.
+# Supports Unity Catalog, SQL queries, and table operations.
+databricks:
+  enabled: false  # Set to true to activate Databricks connector
+  config:
+    workspace_url: "https://your-workspace.databricks.com"
+    http_path: "/sql/1.0/warehouses/your-warehouse-id"
+    catalog: "hive_metastore"
+    schema: "default"
+    keyvault_secret: "databricks-personal-access-token"
+    landing_path: "raw/databricks"
+    # Optional: add specific tables to extract
+    tables: []
+     # - "table_name_1"
+     # - "table_name_2"
+
 # --- MEDALLION ZONE CONFIGURATION ---
 medallion:
   raw:
