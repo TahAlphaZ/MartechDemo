@@ -135,6 +135,51 @@ analytics:
         engage: "/engage"
       landing_path: "raw/analytics/mixpanel"
 
+# --- GOOGLE SHEETS CONNECTORS ---
+# Google Sheets/Google Drive data extraction via REST API
+# Requires service account credentials with Sheets API access
+google_sheets:
+  active: []  # Enable by adding: ["default"] or other sheet names
+  connectors:
+    default:
+      type: "google_sheets_api"
+      base_url: "https://sheets.googleapis.com/v4"
+      auth_type: "service_account"
+      keyvault_secret: "google-sheets-service-account-json"
+      landing_path: "raw/sheets/default"
+      # Optional: specify default spreadsheet ID and sheet name
+      # spreadsheet_id: "1YOUR_SPREADSHEET_ID_HERE"
+      # sheet_name: "Sheet1"
+      # value_render_option: "FORMATTED_VALUE"
+      schema:
+        type: "object"
+        properties:
+          column_name: 
+            type: "string"
+        required: []
+
+    marketing_data:
+      type: "google_sheets_api"
+      base_url: "https://sheets.googleapis.com/v4"
+      auth_type: "service_account"
+      keyvault_secret: "google-sheets-marketing-account-json"
+      spreadsheet_id: "1MARKETING_SHEETS_ID"
+      sheet_name: "Sheet1"
+      landing_path: "raw/sheets/marketing"
+      rate_limit: 5  # requests per second
+      schema:
+        type: "object"
+        properties:
+          campaign_name:
+            type: "string"
+          impressions:
+            type: "integer"
+          clicks:
+            type: "integer"
+          spend:
+            type: "number"
+        required: ["campaign_name"]
+
 # --- MEDALLION ZONE CONFIGURATION ---
 medallion:
   raw:
