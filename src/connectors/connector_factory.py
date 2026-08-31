@@ -11,6 +11,7 @@ from src.connectors.base_connector import (
     DatabaseConnector,
     APIConnector,
 )
+from src.connectors.google_sheets_connector import GoogleSheetsConnector
 
 # ============================================================
 # CONNECTOR CLASS MAP
@@ -30,6 +31,8 @@ CONNECTOR_CLASS_MAP: Dict[str, type] = {
     "google_analytics": APIConnector,
     "adobe_analytics": APIConnector,
     "mixpanel": APIConnector,
+    # Google Sheets connector
+    "google_sheets": GoogleSheetsConnector,
 }
 
 
@@ -98,6 +101,18 @@ def get_active_connectors(registry: Dict[str, Any]) -> Dict[str, ConnectorConfig
             extra=analytics_config,
         )
 
+    # Google Sheets connectors
+    sheets_section = registry.get("google_sheets", {})
+    for sheets_name in sheets_section.get("active", []):
+        sheets_config = sheets_section.get("connectors", {}).get(sheets_name, {})
+        active[f"sheets_{sheets_name}"] = ConnectorConfig(
+            name=sheets_name,
+            connector_type="sheets",
+            keyvault_secret=sheets_config.get("keyvault_secret", ""),
+            landing_path=sheets_config.get("landing_path", f"raw/sheets/{sheets_name}"),
+            extra=sheets_config,
+        )
+
     return active
 
 
@@ -115,6 +130,8 @@ def create_connector(config: ConnectorConfig, secret_value: str) -> BaseConnecto
 
     if issubclass(connector_class, DatabaseConnector):
         return connector_class(config, connection_string=secret_value)
+    elif issubclass(connector_class, GoogleSheetsConnector):
+        return connector_class(config, service_account_json=secret_value)
     elif issubclass(connector_class, APIConnector):
         return connector_class(config, api_key=secret_value)
     else:
