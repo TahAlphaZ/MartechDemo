@@ -11,6 +11,7 @@ from src.connectors.base_connector import (
     DatabaseConnector,
     APIConnector,
 )
+from src.connectors.google_drive_connector import GoogleDriveConnector
 
 # ============================================================
 # CONNECTOR CLASS MAP
@@ -30,6 +31,8 @@ CONNECTOR_CLASS_MAP: Dict[str, type] = {
     "google_analytics": APIConnector,
     "adobe_analytics": APIConnector,
     "mixpanel": APIConnector,
+    # File connectors
+    "google_drive": GoogleDriveConnector,
 }
 
 
