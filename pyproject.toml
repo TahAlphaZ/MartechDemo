@@ -9,6 +9,10 @@ dependencies = [
     "azure-identity>=1.14",
     "azure-keyvault-secrets>=4.7",
     "azure-storage-file-datalake>=12.14",
+    "google-auth>=2.25",
+    "google-auth-oauthlib>=1.1",
+    "google-auth-httplib2>=0.2",
+    "google-api-python-client>=2.100",
 ]
 
 [project.optional-dependencies]

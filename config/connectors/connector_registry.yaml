@@ -50,6 +50,19 @@ file_storage:
       keyvault_secret: "blob-connection-string"
       landing_path: "raw/files/blob"
 
+    google_drive:
+      type: "GoogleDrive"
+      auth_type: "service_account"
+      keyvault_secret: "google-drive-service-account"
+      base_url: "https://www.googleapis.com"
+      drive_api_version: "v3"
+      sheets_api_version: "v4"
+      scopes:
+        - "https://www.googleapis.com/auth/drive.readonly"
+        - "https://www.googleapis.com/auth/spreadsheets.readonly"
+      landing_path: "raw/files/google_drive"
+      rate_limit: 2  # requests per second (Google Drive API limit)
+
 # --- ECOMMERCE API CONNECTORS ---
 # Subagents: Add new ecommerce platforms here.
 ecommerce:
