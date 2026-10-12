@@ -11,6 +11,7 @@ from src.connectors.base_connector import (
     DatabaseConnector,
     APIConnector,
 )
+from src.connectors.google_analytics_connector import GoogleAnalyticsConnector
 
 # ============================================================
 # CONNECTOR CLASS MAP
@@ -26,8 +27,8 @@ CONNECTOR_CLASS_MAP: Dict[str, type] = {
     "shopify": APIConnector,
     "magento": APIConnector,
     "woocommerce": APIConnector,
-    # Analytics connectors (override with specific classes when ready)
-    "google_analytics": APIConnector,
+    # Analytics connectors
+    "google_analytics": GoogleAnalyticsConnector,
     "adobe_analytics": APIConnector,
     "mixpanel": APIConnector,
 }
